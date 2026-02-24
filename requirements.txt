@@ -1,0 +1,25 @@
+# Microsoft Agent Framework (successor to AutoGen + Semantic Kernel)
+agent-framework
+
+# Azure AI / Foundry
+azure-ai-projects
+azure-identity
+openai>=1.12
+
+# Core scientific
+networkx>=3.2
+numpy>=1.26
+pandas>=2.1
+scipy>=1.12
+
+# Visualization
+streamlit>=1.31
+pyvis>=0.3.2
+plotly>=5.18
+
+# Data
+yfinance>=0.2.36
+
+# Utils
+python-dotenv>=1.0
+pydantic>=2.5
