@@ -128,6 +128,11 @@ streamlit run src/app.py
 
 The app opens at `http://localhost:8501`. The simulation engine works fully offline — Azure is only needed for the LLM-powered agent analysis.
 
+### Deploy on Streamlit Cloud
+
+- Full guide: `docs/streamlit_cloud_setup.md`
+- Secrets template: `.streamlit/secrets.toml.example`
+
 ---
 
 ## Project Structure

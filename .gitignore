@@ -37,3 +37,6 @@ Thumbs.db
 # Local AI assistant context files
 .codex/
 CLAUDE.md
+
+# App runtime artifacts
+artifacts/
