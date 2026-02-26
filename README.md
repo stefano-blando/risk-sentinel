@@ -106,8 +106,8 @@ Pre-computed from academic research (PhD project, Scuola Superiore Sant'Anna):
 ### Install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/risksentinel.git
-cd risksentinel
+git clone https://github.com/stefano-blando/risk-sentinel.git
+cd risk-sentinel
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
