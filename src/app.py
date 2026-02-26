@@ -10,6 +10,8 @@ import time
 import json
 import os
 import hmac
+import io
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
@@ -23,7 +25,12 @@ import pandas as pd
 import numpy as np
 import networkx as nx
 
-from src.agents.orchestrator import create_orchestrator, create_simple_agent, run_query
+from src.agents.orchestrator import (
+    create_orchestrator,
+    create_simple_agent,
+    run_query,
+    run_parallel_workflow,
+)
 from src.core import data_loader, network, contagion
 from src.utils.azure_config import (
     get_agent_framework_chat_client,
@@ -107,6 +114,12 @@ DEMO_QUERIES = {
         "Compare NVDA, XOM, and UNH with 50% shock on 2025-12-01. "
         "Rank by systemic impact and list top affected sectors."
     ),
+    "4) Energy stress test": (
+        "What happens if XOM drops 60% on 2022-03-01? Include cascade depth and sector breakdown."
+    ),
+    "5) Defensive allocation": (
+        "Given current network regime and contagion risk, propose a conservative 30-day hedge plan."
+    ),
 }
 
 BENCHMARK_QUERIES = [
@@ -116,6 +129,58 @@ BENCHMARK_QUERIES = [
     "Run linear threshold for NVDA 50% on 2025-12-01.",
     "Compare NVDA, XOM, and UNH with 50% shock on 2025-12-01.",
 ]
+
+SCENARIO_PACK = [
+    {
+        "name": "A) Bank shock quick test",
+        "query": "What happens if JPM crashes 40% on 2025-12-01? Include cascade depth and affected nodes.",
+        "expected_route": "local_fast_mode",
+    },
+    {
+        "name": "B) Bank comparison strategy",
+        "query": (
+            "Compare systemic risk between JPM and GS on 2025-12-01 using DebtRank, "
+            "highlight differences in cascade depth and sector concentration, then propose a hedging plan."
+        ),
+        "expected_route": "gpt",
+    },
+    {
+        "name": "C) Multi-stock systemic ranking",
+        "query": "Compare NVDA, XOM, and UNH with 50% shock on 2025-12-01. Rank by systemic impact.",
+        "expected_route": "gpt",
+    },
+    {
+        "name": "D) Crisis replay",
+        "query": "What happens if GS drops 50% on 2024-08-05? Include contagion waves and top vulnerable sectors.",
+        "expected_route": "local_fast_mode",
+    },
+    {
+        "name": "E) Portfolio hedging",
+        "query": (
+            "For a portfolio overweight Financials and Real Estate, compare shock impact for JPM and GS "
+            "on 2025-12-01 and propose a conservative hedge policy."
+        ),
+        "expected_route": "gpt",
+    },
+]
+
+STRUCTURED_SCHEMA_VERSION = "v1"
+
+RISK_PROFILE_GUIDANCE = {
+    "conservative": "Prioritize drawdown control, tighter stops, larger hedge notional, preserve liquidity.",
+    "balanced": "Balance risk reduction with moderate opportunity retention.",
+    "aggressive": "Accept higher volatility, use tactical hedges and selective concentration.",
+}
+
+WORKFLOW_TRANSITIONS = {
+    "received": {"parsed", "blocked"},
+    "parsed": {"local_ready", "gpt_ready", "blocked"},
+    "local_ready": {"gpt_ready", "completed", "blocked"},
+    "gpt_ready": {"gpt_running", "completed", "blocked"},
+    "gpt_running": {"completed", "blocked"},
+    "blocked": {"completed"},
+    "completed": set(),
+}
 
 # Company name aliases used for lightweight query parsing.
 COMPANY_NAME_MAP = {
@@ -160,6 +225,11 @@ defaults = {
     "gpt_rate_events": [],
     "gpt_calls_total_session": 0,
     "gpt_rate_limit_hits": 0,
+    "risk_profile": "balanced",
+    "scenario_pack_choice": SCENARIO_PACK[0]["name"],
+    "last_structured_payload": None,
+    "run_quality": None,
+    "scenario_eval_results": None,
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -396,6 +466,7 @@ def create_run_trace(
         "timings": {},
         "events": [],
         "result": {},
+        "workflow": {"state": "received", "history": ["received"]},
     }
 
 
@@ -407,6 +478,19 @@ def trace_event(trace: dict, label: str, detail: str = "") -> None:
             "detail": detail,
         }
     )
+
+
+def advance_workflow(trace: dict, next_state: str) -> None:
+    wf = trace.setdefault("workflow", {"state": "received", "history": ["received"]})
+    cur = wf.get("state", "received")
+    allowed = WORKFLOW_TRANSITIONS.get(cur, set())
+    if next_state in allowed or cur == next_state:
+        wf["state"] = next_state
+        wf.setdefault("history", []).append(next_state)
+        trace_event(trace, "workflow_state", f"{cur}->{next_state}")
+    else:
+        wf.setdefault("history", []).append(f"invalid:{cur}->{next_state}")
+        trace_event(trace, "workflow_invalid_transition", f"{cur}->{next_state}")
 
 
 def finalize_run_trace(trace: dict) -> dict:
@@ -508,6 +592,355 @@ def run_local_benchmark(threshold: float) -> dict:
         "total_time_s": round(total, 3),
         "rows": rows,
     }
+
+
+def run_scenario_pack_eval() -> dict:
+    """Evaluate routing expectations for curated judge scenario pack."""
+    rows = []
+    for scenario in SCENARIO_PACK:
+        q = scenario["query"]
+        parsed = parse_chat_query(q)
+        in_scope, _ = is_query_in_scope(q, parsed)
+        complex_query = is_complex_query(q)
+        policy = choose_execution_policy(
+            parsed=parsed,
+            complex_query=complex_query,
+            in_scope=in_scope,
+            agent_mode=st.session_state.agent_mode,
+            gpt_for_parseable_queries=st.session_state.gpt_for_parseable_queries,
+            access_allowed=get_gpt_access_policy()["allowed"],
+            selected_strategy=st.session_state.agent_strategy,
+        )
+        actual = policy.get("route", "n/a")
+        expected = scenario["expected_route"]
+        ok = expected in actual or (expected == "gpt" and actual == "gpt")
+        rows.append(
+            {
+                "scenario": scenario["name"],
+                "expected_route": expected,
+                "actual_route": actual,
+                "effective_strategy": policy.get("effective_strategy"),
+                "status": "PASS" if ok else "CHECK",
+            }
+        )
+    pass_count = sum(1 for r in rows if r["status"] == "PASS")
+    return {
+        "ran_at_utc": datetime.now(timezone.utc).isoformat(),
+        "n_scenarios": len(rows),
+        "n_pass": pass_count,
+        "pass_rate_pct": round(pass_count / max(1, len(rows)) * 100, 1),
+        "rows": rows,
+    }
+
+
+def choose_execution_policy(
+    *,
+    parsed: dict | None,
+    complex_query: bool,
+    in_scope: bool,
+    agent_mode: bool,
+    gpt_for_parseable_queries: bool,
+    access_allowed: bool,
+    selected_strategy: str,
+) -> dict:
+    """Deterministic routing policy for local/GPT paths."""
+    route = "local_only"
+    reason = []
+
+    if not in_scope:
+        route = "guardrail_block"
+        reason.append("out_of_scope")
+    elif parsed and (not agent_mode or not access_allowed):
+        route = "local_only"
+        reason.append("agent_disabled_or_locked")
+    elif parsed and not complex_query and not gpt_for_parseable_queries:
+        route = "local_fast_mode"
+        reason.append("parseable_local_fast")
+    elif agent_mode and access_allowed:
+        route = "gpt"
+        reason.append("gpt_enabled")
+    elif not parsed:
+        route = "parse_failed"
+        reason.append("unparseable_without_gpt")
+
+    effective_strategy = selected_strategy
+    if route == "gpt":
+        if complex_query and selected_strategy in {"orchestrator", "workflow_parallel"}:
+            effective_strategy = "workflow_parallel"
+        elif (not complex_query) and selected_strategy == "workflow_parallel":
+            effective_strategy = "simple"
+        elif selected_strategy not in {"simple", "orchestrator", "workflow_parallel"}:
+            effective_strategy = "simple"
+
+    return {
+        "route": route,
+        "run_local_first": bool(parsed),
+        "should_run_gpt": route == "gpt",
+        "effective_strategy": effective_strategy,
+        "timeout_sec": 45 if effective_strategy == "workflow_parallel" else 35,
+        "max_retries": 1 if effective_strategy == "workflow_parallel" else 2,
+        "reason": ", ".join(reason) if reason else "default",
+    }
+
+
+def extract_json_payload(text: str) -> dict | None:
+    """Best-effort JSON extraction from model output (raw or fenced)."""
+    candidates: list[str] = []
+    stripped = text.strip()
+    if stripped:
+        candidates.append(stripped)
+
+    fence = re.search(r"```(?:json)?\s*(\{[\s\S]*\})\s*```", text, re.IGNORECASE)
+    if fence:
+        candidates.append(fence.group(1).strip())
+
+    obj = re.search(r"(\{[\s\S]*\})", text)
+    if obj:
+        candidates.append(obj.group(1).strip())
+
+    for raw in candidates:
+        try:
+            val = json.loads(raw)
+            if isinstance(val, dict):
+                return val
+        except Exception:
+            continue
+    return None
+
+
+def parse_structured_agent_output(text: str) -> dict | None:
+    payload = extract_json_payload(text)
+    if not payload:
+        return None
+
+    required = ["situation", "quant_results", "risk_rating", "actions", "monitoring_triggers"]
+    if not all(k in payload for k in required):
+        return None
+
+    def _as_list(val) -> list[str]:
+        if isinstance(val, list):
+            return [str(x).strip() for x in val if str(x).strip()]
+        if isinstance(val, str) and val.strip():
+            return [val.strip()]
+        return []
+
+    parsed = {
+        "schema_version": str(payload.get("schema_version", STRUCTURED_SCHEMA_VERSION)),
+        "situation": _as_list(payload.get("situation")),
+        "quant_results": _as_list(payload.get("quant_results")),
+        "risk_rating": str(payload.get("risk_rating", "UNKNOWN")).upper(),
+        "actions": _as_list(payload.get("actions")),
+        "monitoring_triggers": _as_list(payload.get("monitoring_triggers")),
+        "evidence_used": _as_list(payload.get("evidence_used")),
+        "notes": str(payload.get("notes", "")).strip(),
+        "insufficient_data": bool(payload.get("insufficient_data", False)),
+        "uncertainty_score": float(payload.get("uncertainty_score", 0.5))
+        if str(payload.get("uncertainty_score", "")).strip() != "" else 0.5,
+        "confidence_reason": str(payload.get("confidence_reason", "")).strip(),
+    }
+    parsed["uncertainty_score"] = max(0.0, min(1.0, parsed["uncertainty_score"]))
+    return parsed
+
+
+def render_structured_payload_html(payload: dict) -> str:
+    """Render structured JSON output in clean card-friendly HTML."""
+    sections = []
+
+    def _section(title: str, items: list[str]) -> None:
+        if not items:
+            return
+        body = "<br>".join(f"• {html.escape(item)}" for item in items)
+        sections.append(f"<b>{html.escape(title)}</b><br>{body}")
+
+    _section("Situation", payload.get("situation", []))
+    _section("Quant Results", payload.get("quant_results", []))
+    sections.append(f"<b>Risk Rating</b><br>• {html.escape(payload.get('risk_rating', 'UNKNOWN'))}")
+    _section("Actions", payload.get("actions", []))
+    _section("Monitoring Triggers", payload.get("monitoring_triggers", []))
+    _section("Evidence Used", payload.get("evidence_used", []))
+    uncertainty = payload.get("uncertainty_score")
+    if isinstance(uncertainty, (int, float)):
+        sections.append(f"<b>Uncertainty</b><br>• {float(uncertainty):.2f}")
+    confidence_reason = payload.get("confidence_reason", "")
+    if confidence_reason:
+        sections.append(f"<b>Confidence Reason</b><br>• {html.escape(str(confidence_reason))}")
+
+    notes = payload.get("notes", "")
+    if notes:
+        sections.append(f"<b>Notes</b><br>• {html.escape(notes)}")
+    return "<br><br>".join(sections)
+
+
+def build_context_facts_html() -> str:
+    """Fallback deterministic facts when no parsed shock scenario is present."""
+    gd = st.session_state.graph_data
+    if not gd:
+        return ""
+    m = gd.get("metrics", {})
+    lines = [
+        "<b>Context Facts (Deterministic)</b>",
+        (
+            f"• Date: {html.escape(str(gd.get('date', 'n/a')))} | "
+            f"Regime: {html.escape(str(gd.get('regime', 'n/a')))} (VIX {gd.get('vix', 0.0):.1f})"
+        ),
+        (
+            f"• Network: nodes {m.get('n_nodes', 'n/a')} | edges {m.get('n_edges', 'n/a')} | "
+            f"density {m.get('density', 0.0):.3f}"
+        ),
+    ]
+    return "<br>".join(lines)
+
+
+def build_memory_hint(query: str, history: list[dict], top_k: int = 2) -> str:
+    """Retrieve brief episodic memory from prior runs using token overlap."""
+    tokens = {w for w in re.findall(r"[a-zA-Z]{3,}", query.lower()) if w not in {"what", "with", "that", "from"}}
+    if not tokens:
+        return ""
+    scored: list[tuple[int, dict]] = []
+    for row in history:
+        q = str(row.get("query", "")).lower()
+        if not q:
+            continue
+        q_tokens = set(re.findall(r"[a-zA-Z]{3,}", q))
+        score = len(tokens & q_tokens)
+        if score <= 0:
+            continue
+        scored.append((score, row))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    lines = []
+    for _, row in scored[:top_k]:
+        result = row.get("result", {})
+        timings = row.get("timings", {})
+        lines.append(
+            f"- prior_query='{row.get('query', '')[:80]}' | state={result.get('state', 'n/a')} | "
+            f"gpt_success={result.get('gpt_success', False)} | total_sec={timings.get('total_sec', 'n/a')}"
+        )
+    return "\n".join(lines)
+
+
+def build_structured_prompt(user_query: str, facts_plain: str, risk_profile: str, memory_hint: str = "") -> str:
+    profile_hint = RISK_PROFILE_GUIDANCE.get(risk_profile, RISK_PROFILE_GUIDANCE["balanced"])
+    memory_block = f"Episodic memory hints:\n{memory_hint}\n\n" if memory_hint else ""
+    schema = (
+        '{'
+        '"schema_version":"v1",'
+        '"situation":["..."],'
+        '"quant_results":["..."],'
+        '"risk_rating":"LOW|ELEVATED|HIGH|CRITICAL",'
+        '"actions":["..."],'
+        '"monitoring_triggers":["..."],'
+        '"evidence_used":["..."],'
+        '"notes":"...",'
+        '"insufficient_data":false,'
+        '"uncertainty_score":0.2,'
+        '"confidence_reason":"..."'
+        '}'
+    )
+    parts = [
+        "Return ONLY valid JSON (no markdown, no prose outside JSON).\n",
+        f"JSON schema example:\n{schema}\n\n",
+        "Rules:\n",
+        "- Use only values from deterministic facts.\n",
+        "- Do not invent numbers.\n",
+        "- Keep each list concise (max 4 items).\n",
+        "- Return uncertainty_score between 0.0 and 1.0.\n",
+        f"- Risk profile to optimize for: {risk_profile} ({profile_hint})\n",
+        "- If facts are insufficient, set insufficient_data=true and explain in notes.\n\n",
+        f"Deterministic facts:\n{facts_plain}\n\n",
+    ]
+    if memory_block:
+        parts.append(memory_block)
+    parts.append(f"User request:\n{user_query}")
+    return "".join(parts)
+
+
+def evaluate_run_trace(trace: dict) -> dict:
+    """Compute per-run quality/evaluation metrics."""
+    policy = trace.get("policy", {})
+    result = trace.get("result", {})
+    timings = trace.get("timings", {})
+    events = trace.get("events", [])
+    state = result.get("state", "")
+    gpt_attempted = bool(result.get("gpt_attempted"))
+    gpt_success = bool(result.get("gpt_success"))
+    structured_ok = bool(result.get("structured_output_valid", False))
+    facts_mode = policy.get("facts_mode", "none")
+    factual_consistency = None
+    if gpt_attempted and gpt_success:
+        factual_consistency = bool(structured_ok and facts_mode != "none")
+
+    rate_limit_events = sum(1 for e in events if e.get("label") in {"gpt_backoff", "gpt_policy_block"})
+    used_fallback = state in {
+        "gpt_retry_ok",
+        "gpt_fallback_ok",
+        "gpt_failed_local_fallback",
+        "gpt_policy_block_local",
+    }
+    model_uncertainty = result.get("uncertainty_score")
+    if isinstance(model_uncertainty, (int, float)):
+        uncertainty_score = max(0.0, min(1.0, float(model_uncertainty)))
+    else:
+        uncertainty_score = 0.15
+        if not structured_ok:
+            uncertainty_score += 0.25
+        if used_fallback:
+            uncertainty_score += 0.25
+        if rate_limit_events > 0:
+            uncertainty_score += 0.15
+        if policy.get("facts_mode", "none") == "none":
+            uncertainty_score += 0.15
+        uncertainty_score = min(1.0, uncertainty_score)
+    return {
+        "latency_sec": float(timings.get("total_sec", 0.0) or 0.0),
+        "gpt_attempted": gpt_attempted,
+        "gpt_success": gpt_success,
+        "structured_output_valid": structured_ok,
+        "factual_consistency": factual_consistency,
+        "cache_hit": bool(policy.get("cache_hit", False)),
+        "rate_limit_events": rate_limit_events,
+        "used_fallback": used_fallback,
+        "uncertainty_score": round(float(uncertainty_score), 3),
+        "confidence_score": round(float(1.0 - uncertainty_score), 3),
+    }
+
+
+def summarize_quality(history: list[dict]) -> dict:
+    if not history:
+        return {}
+    eval_rows = [h.get("quality", {}) for h in history if h.get("quality")]
+    if not eval_rows:
+        return {}
+    n = len(eval_rows)
+    factual_rows = [r for r in eval_rows if r.get("factual_consistency") is not None]
+    factual_ok = sum(1 for r in factual_rows if r.get("factual_consistency"))
+    return {
+        "runs": n,
+        "avg_latency_sec": round(float(np.mean([r.get("latency_sec", 0.0) for r in eval_rows])), 2),
+        "cache_hit_rate_pct": round(sum(1 for r in eval_rows if r.get("cache_hit")) / n * 100, 1),
+        "fallback_rate_pct": round(sum(1 for r in eval_rows if r.get("used_fallback")) / n * 100, 1),
+        "gpt_success_rate_pct": round(sum(1 for r in eval_rows if r.get("gpt_success")) / n * 100, 1),
+        "rate_limit_events_total": int(sum(int(r.get("rate_limit_events", 0)) for r in eval_rows)),
+        "factual_consistency_pct": round((factual_ok / max(1, len(factual_rows))) * 100, 1) if factual_rows else None,
+        "avg_uncertainty": round(float(np.mean([r.get("uncertainty_score", 0.5) for r in eval_rows])), 3),
+    }
+
+
+def build_submission_bundle_bytes() -> bytes:
+    report = generate_report_text()
+    brief_md = generate_report_markdown()
+    trace_json = generate_trace_bundle_json()
+    quality = summarize_quality(st.session_state.run_trace_history)
+    quality_json = json.dumps(quality, indent=2)
+    scenario_eval_json = json.dumps(st.session_state.scenario_eval_results or {}, indent=2)
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("report.txt", report)
+        zf.writestr("executive_brief.md", brief_md)
+        zf.writestr("explainability_trace.json", trace_json)
+        zf.writestr("kpi_snapshot.json", quality_json)
+        zf.writestr("scenario_pack_eval.json", scenario_eval_json)
+    return buf.getvalue()
 
 
 def format_llm_text_for_card(text: str) -> str:
@@ -661,6 +1094,8 @@ def build_agent_cache_key(
     parsed: dict | None,
     threshold: float,
     model: str,
+    risk_profile: str,
+    schema_version: str,
 ) -> str:
     payload = {
         "q": query,
@@ -672,6 +1107,8 @@ def build_agent_cache_key(
         "shock": parsed.get("shock") if parsed else None,
         "threshold": threshold,
         "model": model,
+        "risk_profile": risk_profile,
+        "schema_version": schema_version,
     }
     return json.dumps(payload, sort_keys=True)
 
@@ -725,6 +1162,15 @@ async def _run_simple_query_async(
     return await asyncio.wait_for(run_query(simple_agent, query), timeout=timeout_sec)
 
 
+async def _run_parallel_workflow_async(
+    query: str,
+    timeout_sec: int,
+    deployment_name: str | None = None,
+) -> str:
+    client = get_agent_framework_chat_client(deployment_name=deployment_name)
+    return await asyncio.wait_for(run_parallel_workflow(client, query, timeout_sec=timeout_sec), timeout=timeout_sec)
+
+
 def run_agent_query(
     query: str,
     timeout_sec: int = 35,
@@ -733,6 +1179,8 @@ def run_agent_query(
 ) -> str:
     if strategy == "orchestrator":
         return _run_async(_run_orchestrator_query_async(query, timeout_sec, deployment_name=deployment_name))
+    if strategy == "workflow_parallel":
+        return _run_async(_run_parallel_workflow_async(query, timeout_sec, deployment_name=deployment_name))
     return _run_async(_run_simple_query_async(query, timeout_sec, deployment_name=deployment_name))
 
 
@@ -906,24 +1354,42 @@ def do_run_shock(G: nx.Graph, ticker: str, shock_pct: int, model: str, emit_mess
 
     # Advisor
     avg_stress = summary['avg_stress'] * 100
+    risk_profile = st.session_state.get("risk_profile", "balanced")
+    profile_hint = {
+        "conservative": "Keep higher hedge ratio and reduce beta quickly.",
+        "balanced": "Balance hedging with portfolio carry.",
+        "aggressive": "Use tactical hedges and preserve selective upside.",
+    }.get(risk_profile, "Balance hedging with portfolio carry.")
     if avg_stress > 30:
         risk_level, risk_class = "CRITICAL", "risk-critical"
-        advice = (f"Systemic event. Avg stress {avg_stress:.1f}%. "
-                  f"<b>Act now:</b> (1) Broad hedges (SPY puts), "
-                  f"(2) Liquidate high-centrality names, (3) Cash up.")
+        advice = (
+            f"Systemic event. Avg stress {avg_stress:.1f}%. "
+            f"<b>Act now:</b> (1) Broad hedges (SPY puts), "
+            f"(2) Liquidate high-centrality names, (3) Cash up. "
+            f"Profile: <b>{risk_profile}</b> — {profile_hint}"
+        )
     elif avg_stress > 15:
         risk_level, risk_class = "HIGH", "risk-high"
-        advice = (f"Severe contagion. Avg stress {avg_stress:.1f}%. "
-                  f"<b>Actions:</b> (1) Sector hedges, "
-                  f"(2) Review {ticker} counterparty exposure, (3) Tighten stops.")
+        advice = (
+            f"Severe contagion. Avg stress {avg_stress:.1f}%. "
+            f"<b>Actions:</b> (1) Sector hedges, "
+            f"(2) Review {ticker} counterparty exposure, (3) Tighten stops. "
+            f"Profile: <b>{risk_profile}</b> — {profile_hint}"
+        )
     elif avg_stress > 5:
         risk_level, risk_class = "ELEVATED", "risk-elevated"
-        advice = (f"Moderate contagion. Avg stress {avg_stress:.1f}%. "
-                  f"<b>Monitor:</b> (1) VIX trajectory, "
-                  f"(2) Direct {ticker} exposure, (3) No broad hedging yet.")
+        advice = (
+            f"Moderate contagion. Avg stress {avg_stress:.1f}%. "
+            f"<b>Monitor:</b> (1) VIX trajectory, "
+            f"(2) Direct {ticker} exposure, (3) No broad hedging yet. "
+            f"Profile: <b>{risk_profile}</b> — {profile_hint}"
+        )
     else:
         risk_level, risk_class = "LOW", "risk-low"
-        advice = f"Contained. Avg stress {avg_stress:.1f}%. Minimal systemic impact."
+        advice = (
+            f"Contained. Avg stress {avg_stress:.1f}%. Minimal systemic impact. "
+            f"Profile: <b>{risk_profile}</b> — {profile_hint}"
+        )
 
     if emit_messages:
         st.session_state.agent_messages.append(
@@ -1325,10 +1791,13 @@ def generate_report_markdown() -> str:
 
 def generate_trace_bundle_json() -> str:
     """Downloadable explainability payload for audit/demo."""
+    quality_summary = summarize_quality(st.session_state.run_trace_history)
     payload = {
         "last_run_metrics": st.session_state.last_run_metrics,
         "trace": st.session_state.run_trace,
         "history_size": len(st.session_state.run_trace_history),
+        "quality_summary": quality_summary,
+        "risk_profile": st.session_state.risk_profile,
     }
     return json.dumps(payload, indent=2)
 
@@ -1361,10 +1830,11 @@ with st.sidebar:
     )
     st.session_state.agent_strategy = st.selectbox(
         "Agent strategy",
-        options=["simple", "orchestrator"],
-        index=0 if st.session_state.agent_strategy == "simple" else 1,
+        options=["simple", "orchestrator", "workflow_parallel"],
+        index=["simple", "orchestrator", "workflow_parallel"].index(st.session_state.agent_strategy)
+        if st.session_state.agent_strategy in {"simple", "orchestrator", "workflow_parallel"} else 0,
         disabled=not st.session_state.agent_mode,
-        help="simple = one tool-calling agent (faster). orchestrator = multi-agent chain (richer but slower).",
+        help="simple = one tool-calling agent. orchestrator = agent-as-tool chain. workflow_parallel = Architect+Quant parallel + Advisor+Critic.",
     )
     st.session_state.high_quality_mode = st.toggle(
         "High quality mode (gpt-4o)",
@@ -1377,6 +1847,13 @@ with st.sidebar:
         value=st.session_state.gpt_for_parseable_queries,
         disabled=not st.session_state.agent_mode,
         help="If disabled, standard parseable shock queries use fast local engine only.",
+    )
+    st.session_state.risk_profile = st.selectbox(
+        "Risk profile",
+        options=["conservative", "balanced", "aggressive"],
+        index=["conservative", "balanced", "aggressive"].index(st.session_state.risk_profile)
+        if st.session_state.risk_profile in {"conservative", "balanced", "aggressive"} else 1,
+        help="Portfolio posture used by Advisor recommendations.",
     )
     st.session_state.agent_timeout_sec = st.slider(
         "Agent timeout (sec)",
@@ -1414,6 +1891,7 @@ with st.sidebar:
         f"{_get_runtime_int('GPT_MAX_CALLS_PER_SESSION', 120)} per session."
     )
     st.caption(rate_cfg_caption)
+    st.caption("Tool contract: mcp.tool.result.v1 (MCP-ready JSON envelopes)")
     if st.session_state.agent_diagnostic:
         st.code(st.session_state.agent_diagnostic, language="text")
 
@@ -1438,6 +1916,21 @@ with st.sidebar:
             st.session_state.pending_chat_query = DEMO_QUERIES[st.session_state.demo_story]
             st.rerun()
 
+    st.markdown("### 🧩 Scenario Pack")
+    scenario_names = [s["name"] for s in SCENARIO_PACK]
+    st.session_state.scenario_pack_choice = st.selectbox(
+        "Judge scenario",
+        options=scenario_names,
+        index=scenario_names.index(st.session_state.scenario_pack_choice)
+        if st.session_state.scenario_pack_choice in scenario_names else 0,
+    )
+    selected_scenario = next(s for s in SCENARIO_PACK if s["name"] == st.session_state.scenario_pack_choice)
+    st.caption(selected_scenario["query"])
+    st.caption(f"Expected route: {selected_scenario['expected_route']}")
+    if st.button("▶ Run Scenario", use_container_width=True):
+        st.session_state.pending_chat_query = selected_scenario["query"]
+        st.rerun()
+
     st.divider()
 
     # === OBSERVABILITY ===
@@ -1455,12 +1948,19 @@ with st.sidebar:
     if st.button("🧪 Run Local Benchmark (5 queries)", use_container_width=True):
         with st.spinner("Running benchmark pack..."):
             st.session_state.eval_results = run_local_benchmark(st.session_state.sel_threshold)
+    if st.button("🧩 Evaluate Scenario Pack", use_container_width=True):
+        st.session_state.scenario_eval_results = run_scenario_pack_eval()
     if st.session_state.eval_results:
         er = st.session_state.eval_results
         bcols = st.columns(3)
         bcols[0].metric("Benchmark", f"{er['n_ok']}/{er['n_queries']}")
         bcols[1].metric("Success", f"{er['success_rate_pct']:.1f}%")
         bcols[2].metric("Avg latency", f"{er['avg_latency_s']:.2f}s")
+    if st.session_state.scenario_eval_results:
+        sr_eval = st.session_state.scenario_eval_results
+        scols = st.columns(2)
+        scols[0].metric("Scenario pack", f"{sr_eval['n_pass']}/{sr_eval['n_scenarios']}")
+        scols[1].metric("Pass rate", f"{sr_eval['pass_rate_pct']:.1f}%")
 
     st.divider()
 
@@ -1571,6 +2071,7 @@ if incoming_query:
     runtime_access_policy = get_gpt_access_policy()
     primary_deployment, fallback_deployment = get_deployment_routing(st.session_state.high_quality_mode)
     st.session_state.agent_messages = []
+    st.session_state.last_structured_payload = None
     t_start = time.perf_counter()
     local_sec = None
     gpt_sec = None
@@ -1593,13 +2094,27 @@ if incoming_query:
         "strategy": st.session_state.agent_strategy,
         "high_quality_mode": st.session_state.high_quality_mode,
         "gpt_for_parseable_queries": st.session_state.gpt_for_parseable_queries,
+        "risk_profile": st.session_state.risk_profile,
+        "tool_contract_version": "mcp.tool.result.v1",
         "primary_deployment": primary_deployment,
         "fallback_deployment": fallback_deployment,
         "gpt_access_allowed": runtime_access_policy["allowed"],
         "gpt_access_reason": runtime_access_policy["reason"],
     }
+    execution_policy = choose_execution_policy(
+        parsed=parsed,
+        complex_query=complex_query,
+        in_scope=in_scope,
+        agent_mode=st.session_state.agent_mode,
+        gpt_for_parseable_queries=st.session_state.gpt_for_parseable_queries,
+        access_allowed=runtime_access_policy["allowed"],
+        selected_strategy=st.session_state.agent_strategy,
+    )
+    trace["policy"]["router"] = execution_policy
     trace_event(trace, "query_received", chat_query)
     trace_event(trace, "scope_check", scope_reason)
+    trace_event(trace, "router_decision", execution_policy["route"])
+    advance_workflow(trace, "parsed")
 
     with st.status("Processing query...", expanded=True) as status:
         progress = st.progress(5)
@@ -1628,12 +2143,14 @@ if incoming_query:
             )
             run_state = "out_of_scope"
             trace_event(trace, "guardrail_block", "query rejected by domain policy")
+            advance_workflow(trace, "blocked")
 
         else:
             # Local deterministic path (used both for fast answers and deterministic facts anchoring).
-            run_local_first = bool(parsed)
+            run_local_first = bool(execution_policy.get("run_local_first", bool(parsed)))
             suppress_local_messages = bool(complex_query and st.session_state.agent_mode)
             if run_local_first:
+                advance_workflow(trace, "local_ready")
                 _step(30, "Running local network build and contagion simulation")
                 trace_event(trace, "local_start", f"ticker={parsed['ticker']}, shock={parsed['shock']}")
                 t_local = time.perf_counter()
@@ -1662,12 +2179,7 @@ if incoming_query:
                 )
                 trace_event(trace, "routing_hint", "complex_intent=true")
 
-            should_run_gpt = (
-                st.session_state.agent_mode
-                and in_scope
-                and runtime_access_policy["allowed"]
-                and (not parsed or st.session_state.gpt_for_parseable_queries or complex_query)
-            )
+            should_run_gpt = bool(execution_policy.get("should_run_gpt"))
             gpt_policy_block_reason = ""
             if not runtime_access_policy["allowed"]:
                 gpt_policy_block_reason = f"access_locked:{runtime_access_policy['reason']}"
@@ -1693,9 +2205,13 @@ if incoming_query:
 
             # Optional GPT path.
             if should_run_gpt:
+                advance_workflow(trace, "gpt_ready")
                 gpt_attempted = True
                 t_gpt = time.perf_counter()
-                strategy = st.session_state.agent_strategy
+                strategy = execution_policy.get("effective_strategy", st.session_state.agent_strategy)
+                timeout_policy = int(execution_policy.get("timeout_sec", st.session_state.agent_timeout_sec))
+                retry_policy = int(execution_policy.get("max_retries", 2))
+                timeout_sec_effective = min(timeout_policy, st.session_state.agent_timeout_sec)
                 cache_key = build_agent_cache_key(
                     query=chat_query,
                     strategy=strategy,
@@ -1703,9 +2219,11 @@ if incoming_query:
                     parsed=parsed,
                     threshold=threshold,
                     model=model_for_query,
+                    risk_profile=st.session_state.risk_profile,
+                    schema_version=STRUCTURED_SCHEMA_VERSION,
                 )
-                facts_html = build_simulation_facts_html()
-                facts_mode = "single"
+                facts_html = build_simulation_facts_html() if parsed else build_context_facts_html()
+                facts_mode = "single" if parsed else "context"
                 if parsed and complex_query and len(parsed.get("tickers", [])) >= 2 and st.session_state.graph_data:
                     gd = st.session_state.graph_data
                     compare_rows = _compute_compare_rows(
@@ -1729,21 +2247,47 @@ if incoming_query:
 
                 trace["policy"]["facts_mode"] = facts_mode
                 trace_event(trace, "gpt_start", f"strategy={strategy}, facts={facts_mode}")
+                advance_workflow(trace, "gpt_running")
 
-                if facts_html:
+                if facts_mode == "none":
+                    facts_plain = "No deterministic facts available in local engine state."
+                    trace_event(trace, "evidence_warning", "facts missing; request must return insufficient_data")
+                else:
                     facts_plain = re.sub(r"<[^>]+>", "", facts_html).replace("&nbsp;", " ")
                     trace["policy"]["facts_preview"] = facts_plain[:500]
-                    prompt_for_agent = (
-                        "Use the deterministic simulation facts below exactly as numeric ground truth. "
-                        "Do not invent or override these values.\n\n"
-                        f"{facts_plain}\n\n"
-                        f"User request:\n{chat_query}"
-                    )
-                else:
-                    prompt_for_agent = chat_query
 
-                def _push_gpt_message(answer_text: str, deployment_used: str, label_strategy: str, cached: bool = False):
-                    formatted_answer = format_llm_text_for_card(answer_text)
+                memory_hint = build_memory_hint(chat_query, st.session_state.run_trace_history)
+                if memory_hint:
+                    trace["policy"]["memory_hint"] = memory_hint[:400]
+                prompt_for_agent = build_structured_prompt(
+                    user_query=chat_query,
+                    facts_plain=facts_plain,
+                    risk_profile=st.session_state.risk_profile,
+                    memory_hint=memory_hint,
+                )
+
+                def _push_gpt_message(
+                    answer_text: str,
+                    deployment_used: str,
+                    label_strategy: str,
+                    cached: bool = False,
+                    structured_payload: dict | None = None,
+                ):
+                    payload = structured_payload or parse_structured_agent_output(answer_text)
+                    st.session_state.last_structured_payload = payload
+                    if payload:
+                        trace["result"]["structured_output_valid"] = True
+                        trace["result"]["uncertainty_score"] = payload.get("uncertainty_score")
+                        trace["result"]["confidence_reason"] = payload.get("confidence_reason")
+                        formatted_answer = render_structured_payload_html(payload)
+                    else:
+                        trace["result"]["structured_output_valid"] = False
+                        formatted_answer = format_llm_text_for_card(answer_text)
+                        formatted_answer = (
+                            "<b>Unstructured output fallback</b><br>"
+                            "• Model did not return valid JSON schema.<br><br>"
+                            + formatted_answer
+                        )
                     body = f"{facts_html}<br><br>{formatted_answer}" if facts_html else formatted_answer
                     suffix = ", cached" if cached else ""
                     st.session_state.agent_messages.append(
@@ -1767,6 +2311,7 @@ if incoming_query:
                         deployment_used=cached.get("deployment", primary_deployment),
                         label_strategy=cached.get("strategy", strategy),
                         cached=True,
+                        structured_payload=cached.get("payload"),
                     )
                     gpt_success = True
                     engine_label = f"{cached.get('deployment', primary_deployment)} ({strategy}, cached)"
@@ -1778,15 +2323,17 @@ if incoming_query:
                         _step(60, f"Running GPT analysis ({strategy})")
                         answer = run_agent_query_with_backoff(
                             prompt_for_agent,
-                            timeout_sec=st.session_state.agent_timeout_sec,
+                            timeout_sec=timeout_sec_effective,
                             strategy=strategy,
                             deployment_name=primary_deployment,
-                            max_retries=2,
+                            max_retries=retry_policy,
                             on_backoff=_on_backoff,
                         )
-                        _push_gpt_message(answer, primary_deployment, strategy)
+                        parsed_payload = parse_structured_agent_output(answer)
+                        _push_gpt_message(answer, primary_deployment, strategy, structured_payload=parsed_payload)
                         st.session_state.agent_response_cache[cache_key] = {
                             "answer": answer,
+                            "payload": parsed_payload,
                             "deployment": primary_deployment,
                             "strategy": strategy,
                             "ts": time.time(),
@@ -1799,20 +2346,27 @@ if incoming_query:
                         trace_event(trace, "gpt_err", f"{type(exc).__name__}: {str(exc)[:120]}")
                         # If full orchestrator times out, retry once with simple agent.
                         retried = False
-                        if st.session_state.agent_strategy == "orchestrator":
+                        if strategy in {"orchestrator", "workflow_parallel"}:
                             try:
                                 _step(72, "Orchestrator timeout. Retrying with simple strategy")
                                 answer = run_agent_query_with_backoff(
                                     prompt_for_agent,
-                                    timeout_sec=min(45, st.session_state.agent_timeout_sec),
+                                    timeout_sec=min(45, timeout_sec_effective),
                                     strategy="simple",
                                     deployment_name=primary_deployment,
                                     max_retries=1,
                                     on_backoff=_on_backoff,
                                 )
-                                _push_gpt_message(answer, primary_deployment, "simple")
+                                parsed_payload = parse_structured_agent_output(answer)
+                                _push_gpt_message(
+                                    answer,
+                                    primary_deployment,
+                                    "simple",
+                                    structured_payload=parsed_payload,
+                                )
                                 st.session_state.agent_response_cache[cache_key] = {
                                     "answer": answer,
+                                    "payload": parsed_payload,
                                     "deployment": primary_deployment,
                                     "strategy": "simple",
                                     "ts": time.time(),
@@ -1831,15 +2385,22 @@ if incoming_query:
                                 _step(80, f"Rate limit on {primary_deployment}. Retrying with {fallback_deployment}")
                                 answer = run_agent_query_with_backoff(
                                     prompt_for_agent,
-                                    timeout_sec=min(45, st.session_state.agent_timeout_sec),
+                                    timeout_sec=min(45, timeout_sec_effective),
                                     strategy="simple",
                                     deployment_name=fallback_deployment,
                                     max_retries=1,
                                     on_backoff=_on_backoff,
                                 )
-                                _push_gpt_message(answer, fallback_deployment, "simple")
+                                parsed_payload = parse_structured_agent_output(answer)
+                                _push_gpt_message(
+                                    answer,
+                                    fallback_deployment,
+                                    "simple",
+                                    structured_payload=parsed_payload,
+                                )
                                 st.session_state.agent_response_cache[cache_key] = {
                                     "answer": answer,
+                                    "payload": parsed_payload,
                                     "deployment": fallback_deployment,
                                     "strategy": "simple",
                                     "ts": time.time(),
@@ -1940,7 +2501,11 @@ if incoming_query:
         "engine": engine_label,
         "gpt_attempted": gpt_attempted,
         "gpt_success": gpt_success,
+        "structured_output_valid": bool(trace.get("result", {}).get("structured_output_valid", False)),
     }
+    trace["quality"] = evaluate_run_trace(trace)
+    st.session_state.run_quality = trace["quality"]
+    advance_workflow(trace, "completed")
     trace_event(trace, "run_complete", run_state)
     trace = finalize_run_trace(trace)
     persist_run_trace(trace)
@@ -2087,6 +2652,8 @@ with info_col:
             st.json({
                 "scope_reason": trace.get("scope_reason"),
                 "complex_query": trace.get("complex_query"),
+                "router": p.get("router"),
+                "workflow": trace.get("workflow"),
                 "strategy": p.get("strategy"),
                 "should_run_gpt": p.get("should_run_gpt"),
                 "gpt_access_allowed": p.get("gpt_access_allowed"),
@@ -2118,6 +2685,16 @@ with info_col:
             st.caption("Recent route states: " + ", ".join(pd.Series(states).value_counts().head(4).index.tolist()))
             st.caption(f"Session GPT calls: {st.session_state.gpt_calls_total_session} | Policy throttles: {st.session_state.gpt_rate_limit_hits}")
 
+            quality = summarize_quality(history)
+            if quality:
+                st.markdown("### ✅ Run Quality")
+                qcols = st.columns(5)
+                qcols[0].metric("Factual", f"{quality['factual_consistency_pct']:.1f}%" if quality["factual_consistency_pct"] is not None else "n/a")
+                qcols[1].metric("Fallback rate", f"{quality['fallback_rate_pct']:.1f}%")
+                qcols[2].metric("Cache hit", f"{quality['cache_hit_rate_pct']:.1f}%")
+                qcols[3].metric("429 events", str(quality["rate_limit_events_total"]))
+                qcols[4].metric("Avg uncertainty", f"{quality['avg_uncertainty']:.2f}")
+
         if st.session_state.eval_results:
             st.markdown("### 🧪 Benchmark Results")
             er = st.session_state.eval_results
@@ -2126,6 +2703,22 @@ with info_col:
                 f"avg latency {er['avg_latency_s']:.2f}s | total {er['total_time_s']:.2f}s"
             )
             st.dataframe(pd.DataFrame(er["rows"]), use_container_width=True, hide_index=True)
+
+        if st.session_state.scenario_eval_results:
+            st.markdown("### 🧩 Scenario Pack Eval")
+            se = st.session_state.scenario_eval_results
+            st.caption(f"{se['n_pass']}/{se['n_scenarios']} PASS ({se['pass_rate_pct']:.1f}%)")
+            st.dataframe(pd.DataFrame(se["rows"]), use_container_width=True, hide_index=True)
+
+        if st.session_state.run_trace:
+            current_query = st.session_state.run_trace.get("query", "")
+            matched = next((s for s in SCENARIO_PACK if s["query"] == current_query), None)
+            if matched:
+                expected = matched["expected_route"]
+                actual = st.session_state.run_trace.get("result", {}).get("state", "n/a")
+                ok = expected in actual or (expected == "gpt" and actual.startswith("gpt_"))
+                st.markdown("### 🎯 Scenario Check")
+                st.caption(f"{matched['name']} | expected: {expected} | actual: {actual} | status: {'PASS' if ok else 'CHECK'}")
 
     if st.session_state.shock_result:
         sr = st.session_state.shock_result
@@ -2155,6 +2748,7 @@ with info_col:
         report = generate_report_text()
         brief_md = generate_report_markdown()
         trace_json = generate_trace_bundle_json()
+        submission_zip = build_submission_bundle_bytes()
         dcols = st.columns(3)
         dcols[0].download_button(
             "📥 Report (.txt)", report,
@@ -2170,6 +2764,13 @@ with info_col:
             "🧾 Explainability (.json)", trace_json,
             file_name=f"risksentinel_trace_{sr.shocked_node}_{st.session_state.graph_data['date']}.json",
             mime="application/json", use_container_width=True,
+        )
+        st.download_button(
+            "📦 Submission Bundle (.zip)",
+            submission_zip,
+            file_name=f"risksentinel_submission_bundle_{sr.shocked_node}_{st.session_state.graph_data['date']}.zip",
+            mime="application/zip",
+            use_container_width=True,
         )
 
 

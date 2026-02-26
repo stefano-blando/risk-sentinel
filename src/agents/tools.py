@@ -5,16 +5,83 @@ core/ functions, with type annotations and descriptions for the LLM.
 """
 
 import json
+from functools import wraps
 from typing import Annotated, Any
 
 from pydantic import Field
 
 from src.core import data_loader, network, contagion
 
+TOOL_CONTRACT_VERSION = "mcp.tool.result.v1"
+
+
+def _classify_error(exc: Exception) -> tuple[str, bool]:
+    txt = f"{type(exc).__name__}: {exc}".lower()
+    if "timeout" in txt:
+        return "TIMEOUT", True
+    if "rate limit" in txt or "429" in txt:
+        return "RATE_LIMIT", True
+    if "not found" in txt or "missing" in txt:
+        return "NOT_FOUND", False
+    if "invalid" in txt or isinstance(exc, (ValueError, TypeError)):
+        return "INVALID_INPUT", False
+    return "INTERNAL_ERROR", False
+
+
+def _wrap_tool_result(tool_name: str, payload: Any) -> str:
+    return json.dumps(
+        {
+            "contract_version": TOOL_CONTRACT_VERSION,
+            "tool": tool_name,
+            "status": "ok",
+            "error_code": None,
+            "retryable": False,
+            "data": payload,
+        },
+        indent=2,
+    )
+
+
+def _wrap_tool_error(tool_name: str, exc: Exception) -> str:
+    error_code, retryable = _classify_error(exc)
+    return json.dumps(
+        {
+            "contract_version": TOOL_CONTRACT_VERSION,
+            "tool": tool_name,
+            "status": "error",
+            "error_code": error_code,
+            "retryable": retryable,
+            "message": str(exc),
+            "data": {},
+        },
+        indent=2,
+    )
+
+
+def tool_contract(tool_name: str):
+    """Decorator to enforce MCP-ready JSON tool envelope."""
+    def _decorator(fn):
+        @wraps(fn)
+        def _wrapped(*args, **kwargs):
+            try:
+                raw = fn(*args, **kwargs)
+                payload = raw
+                if isinstance(raw, str):
+                    try:
+                        payload = json.loads(raw)
+                    except Exception:
+                        payload = {"raw": raw}
+                return _wrap_tool_result(tool_name, payload)
+            except Exception as exc:
+                return _wrap_tool_error(tool_name, exc)
+        return _wrapped
+    return _decorator
+
 
 # ---------------------------------------------------------------------------
 # ARCHITECT TOOLS
 # ---------------------------------------------------------------------------
+@tool_contract("build_network_for_date")
 def build_network_for_date(
     date: Annotated[str, Field(description="Date in YYYY-MM-DD format to build the correlation network for.")],
     threshold: Annotated[float, Field(description="Minimum |correlation| to create an edge. Default 0.5.")] = 0.5,
@@ -30,6 +97,7 @@ def build_network_for_date(
     }, indent=2)
 
 
+@tool_contract("get_top_systemic_nodes")
 def get_top_systemic_nodes(
     date: Annotated[str, Field(description="Date in YYYY-MM-DD format.")],
     metric: Annotated[str, Field(description="Centrality metric: degree, betweenness, closeness, eigenvector, or pagerank.")] = "pagerank",
@@ -51,6 +119,7 @@ def get_top_systemic_nodes(
     )
 
 
+@tool_contract("get_node_connections")
 def get_node_connections(
     ticker: Annotated[str, Field(description="Stock ticker symbol (e.g., JPM, AAPL, NVDA).")],
     date: Annotated[str, Field(description="Date in YYYY-MM-DD format.")] = "2025-12-01",
@@ -76,6 +145,7 @@ def get_node_connections(
     }, indent=2)
 
 
+@tool_contract("get_market_regime")
 def get_market_regime(
     date: Annotated[str, Field(description="Date in YYYY-MM-DD format.")] = "2025-12-01",
 ) -> str:
@@ -94,6 +164,7 @@ def get_market_regime(
 # ---------------------------------------------------------------------------
 # QUANT (SIMULATOR) TOOLS
 # ---------------------------------------------------------------------------
+@tool_contract("run_shock_simulation")
 def run_shock_simulation(
     ticker: Annotated[str, Field(description="Stock ticker to shock (e.g., JPM, AAPL).")],
     shock_magnitude: Annotated[float, Field(description="Shock level from 0.0 to 1.0. 0.5 = 50% stress, 1.0 = full default.")] = 0.5,
@@ -134,6 +205,7 @@ def run_shock_simulation(
     return json.dumps(summary, indent=2)
 
 
+@tool_contract("compare_shock_models")
 def compare_shock_models(
     ticker: Annotated[str, Field(description="Stock ticker to shock.")],
     shock_magnitude: Annotated[float, Field(description="Shock level (0-1).")] = 0.5,
@@ -162,6 +234,7 @@ def compare_shock_models(
     }, indent=2)
 
 
+@tool_contract("get_cascade_waves")
 def get_cascade_waves(
     ticker: Annotated[str, Field(description="Stock ticker to shock.")],
     shock_magnitude: Annotated[float, Field(description="Shock level (0-1).")] = 0.5,
@@ -197,6 +270,7 @@ def get_cascade_waves(
 # ---------------------------------------------------------------------------
 # ADVISOR TOOLS
 # ---------------------------------------------------------------------------
+@tool_contract("get_risk_summary")
 def get_risk_summary(
     date: Annotated[str, Field(description="Date in YYYY-MM-DD format.")] = "2025-12-01",
     threshold: Annotated[float, Field(description="Minimum |correlation| edge threshold. Default 0.5.")] = 0.5,
