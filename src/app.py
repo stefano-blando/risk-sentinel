@@ -165,10 +165,24 @@ for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-if st.session_state.sector_dict is None:
-    st.session_state.sector_dict = data_loader.get_sector_dict()
-if st.session_state.tickers is None:
-    st.session_state.tickers = data_loader.get_ticker_list()
+if st.session_state.sector_dict is None or st.session_state.tickers is None:
+    try:
+        if st.session_state.sector_dict is None:
+            st.session_state.sector_dict = data_loader.get_sector_dict()
+        if st.session_state.tickers is None:
+            st.session_state.tickers = data_loader.get_ticker_list()
+    except Exception as exc:
+        paths = data_loader.get_data_root_info()
+        st.error(
+            "RiskSentinel data files are not available.\n\n"
+            f"- Resolved data path: `{paths['final']}`\n"
+            f"- Networks path: `{paths['networks']}`\n"
+            f"- RISKSENTINEL_DATA_ROOT: `{paths['env_data_root'] or '(not set)'}`\n\n"
+            "Set `RISKSENTINEL_DATA_ROOT` to a folder containing the processed dataset "
+            "(including `sector_mapping.parquet` and `networks/node_centralities.pkl`).\n\n"
+            f"Technical error: `{type(exc).__name__}: {exc}`"
+        )
+        st.stop()
 
 
 # ---------------------------------------------------------------------------

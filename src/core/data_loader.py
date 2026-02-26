@@ -6,6 +6,7 @@ metrics are all pre-built (3081 daily snapshots, 210 S&P 500 stocks).
 """
 
 import pickle
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -15,14 +16,68 @@ import pandas as pd
 # ---------------------------------------------------------------------------
 # PATHS — PhD project data (final_version = clean thesis copy)
 # ---------------------------------------------------------------------------
-PHD_BASE = Path.home() / "Scrivania/PHD/research/active/topological-stock-prediction/CESMA THESIS/network_stock_prediction"
-FINAL = PHD_BASE / "final_version/data/processed"
-NETWORKS = FINAL / "networks"
+_LEGACY_PHD_BASE = Path.home() / "Scrivania/PHD/research/active/topological-stock-prediction/CESMA THESIS/network_stock_prediction"
 
-# Fallback to main processed dir if final_version doesn't exist
-if not FINAL.exists():
-    FINAL = PHD_BASE / "data/processed"
-    NETWORKS = FINAL / "networks"
+
+def _candidate_processed_dirs() -> list[Path]:
+    """Return candidate 'processed' dirs in priority order."""
+    candidates: list[Path] = []
+    env_root = os.getenv("RISKSENTINEL_DATA_ROOT", "").strip()
+    if env_root:
+        root = Path(env_root).expanduser()
+        candidates.extend([
+            root,
+            root / "processed",
+            root / "data" / "processed",
+            root / "final_version" / "data" / "processed",
+        ])
+
+    repo_root = Path(__file__).resolve().parents[2]
+    candidates.extend([
+        repo_root / "data" / "processed",
+        _LEGACY_PHD_BASE / "final_version" / "data" / "processed",
+        _LEGACY_PHD_BASE / "data" / "processed",
+    ])
+
+    deduped: list[Path] = []
+    seen: set[str] = set()
+    for path in candidates:
+        key = str(path)
+        if key not in seen:
+            deduped.append(path)
+            seen.add(key)
+    return deduped
+
+
+def _is_valid_processed_dir(path: Path) -> bool:
+    return (path / "sector_mapping.parquet").is_file() and (path / "networks" / "node_centralities.pkl").is_file()
+
+
+def _resolve_processed_dir() -> Path:
+    candidates = _candidate_processed_dirs()
+    first_existing: Path | None = None
+    for path in candidates:
+        if path.exists() and first_existing is None:
+            first_existing = path
+        if _is_valid_processed_dir(path):
+            return path
+    if first_existing is not None:
+        return first_existing
+    return candidates[0]
+
+
+FINAL = _resolve_processed_dir()
+NETWORKS = FINAL / "networks"
+PHD_BASE = FINAL.parents[2] if len(FINAL.parents) >= 3 else _LEGACY_PHD_BASE
+
+
+def get_data_root_info() -> dict[str, str]:
+    """Expose resolved data paths for diagnostics/UI."""
+    return {
+        "final": str(FINAL),
+        "networks": str(NETWORKS),
+        "env_data_root": os.getenv("RISKSENTINEL_DATA_ROOT", ""),
+    }
 
 
 # ---------------------------------------------------------------------------

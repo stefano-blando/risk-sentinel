@@ -1,0 +1,16 @@
+.git
+.gitignore
+.env
+.env.local
+.pytest_cache
+venv
+.venv
+__pycache__
+*.pyc
+.DS_Store
+Thumbs.db
+artifacts
+.azure
+.codex
+docs
+tests

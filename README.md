@@ -133,6 +133,11 @@ The app opens at `http://localhost:8501`. The simulation engine works fully offl
 - Full guide: `docs/streamlit_cloud_setup.md`
 - Secrets template: `.streamlit/secrets.toml.example`
 
+### Deploy on Azure Container Apps
+
+- Full guide: `docs/azure_container_apps_setup.md`
+- Runtime expects `RISKSENTINEL_DATA_ROOT` pointing to the processed dataset
+
 ---
 
 ## Project Structure
