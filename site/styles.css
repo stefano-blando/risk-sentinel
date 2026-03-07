@@ -1,12 +1,12 @@
 :root {
-  --bg: #f4f3ed;
-  --panel: rgba(255, 255, 255, 0.82);
-  --ink: #152019;
-  --muted: #4f5d54;
-  --teal: #0b7d76;
-  --orange: #d86a1f;
-  --line: #d4d9d2;
-  --shadow: 0 14px 40px rgba(24, 34, 29, 0.12);
+  --bg: #070b14;
+  --panel: rgba(19, 31, 55, 0.9);
+  --ink: #e5edf9;
+  --muted: #9fb0cc;
+  --teal: #38bdf8;
+  --orange: #fb923c;
+  --line: #223555;
+  --shadow: 0 16px 38px rgba(0, 0, 0, 0.34);
   --radius: 18px;
 }
 
@@ -38,16 +38,16 @@ body {
 
 .bg-glow {
   background:
-    radial-gradient(circle at 14% 18%, rgba(11, 125, 118, 0.16), transparent 38%),
-    radial-gradient(circle at 84% 10%, rgba(216, 106, 31, 0.12), transparent 35%),
-    radial-gradient(circle at 68% 84%, rgba(11, 125, 118, 0.14), transparent 40%);
+    radial-gradient(circle at 14% 18%, rgba(56, 189, 248, 0.2), transparent 38%),
+    radial-gradient(circle at 84% 10%, rgba(251, 146, 60, 0.15), transparent 35%),
+    radial-gradient(circle at 68% 84%, rgba(96, 165, 250, 0.17), transparent 40%);
 }
 
 .bg-grid {
   z-index: -1;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.28) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.28) 1px, transparent 1px);
+    linear-gradient(rgba(34, 53, 85, 0.45) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 53, 85, 0.45) 1px, transparent 1px);
   background-size: 38px 38px;
 }
 
@@ -59,8 +59,8 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 0.9rem 1.25rem;
-  border-bottom: 1px solid rgba(21, 32, 25, 0.08);
-  background: rgba(244, 243, 237, 0.84);
+  border-bottom: 1px solid rgba(34, 53, 85, 0.75);
+  background: rgba(15, 23, 42, 0.84);
   backdrop-filter: blur(8px);
 }
 
@@ -79,7 +79,7 @@ body {
   width: 2rem;
   height: 2rem;
   border-radius: 999px;
-  background: linear-gradient(140deg, var(--teal), #19a399);
+  background: linear-gradient(140deg, #38bdf8, #60a5fa);
   color: #fff;
   font-size: 0.8rem;
 }
@@ -123,6 +123,10 @@ section {
   line-height: 1.03;
   margin: 0;
   max-width: 900px;
+  background: linear-gradient(115deg, #e5edf9 0%, #9dd6fb 52%, #ffc38e 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .subtitle {
@@ -146,19 +150,19 @@ section {
   border-radius: 999px;
   font-weight: 700;
   color: #fff;
-  background: linear-gradient(135deg, var(--teal), #10a09b);
-  box-shadow: 0 8px 24px rgba(11, 125, 118, 0.22);
+  background: linear-gradient(135deg, #1b4f9d, #0f6ea2);
+  box-shadow: 0 8px 24px rgba(56, 189, 248, 0.2);
   transition: transform 180ms ease, box-shadow 180ms ease;
 }
 
 .btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 11px 28px rgba(11, 125, 118, 0.28);
+  box-shadow: 0 11px 28px rgba(56, 189, 248, 0.28);
 }
 
 .btn-ghost {
   color: var(--ink);
-  background: transparent;
+  background: rgba(26, 39, 68, 0.62);
   border-color: var(--line);
   box-shadow: none;
 }
@@ -193,7 +197,7 @@ section {
 
 .metric {
   font: 700 1.56rem/1 "IBM Plex Mono", monospace;
-  color: var(--teal);
+  color: var(--orange);
 }
 
 .hero-metrics p {
@@ -244,7 +248,7 @@ section {
 code {
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.9em;
-  background: rgba(11, 125, 118, 0.1);
+  background: rgba(56, 189, 248, 0.14);
   border-radius: 0.38rem;
   padding: 0.06rem 0.32rem;
 }
@@ -271,7 +275,7 @@ code {
 
 .link-card:hover {
   transform: translateY(-2px);
-  border-color: var(--teal);
+  border-color: #60a5fa;
 }
 
 .link-placeholder {
@@ -280,7 +284,7 @@ code {
 }
 
 footer {
-  border-top: 1px solid rgba(21, 32, 25, 0.12);
+  border-top: 1px solid rgba(34, 53, 85, 0.9);
   text-align: center;
   padding: 1.6rem 1rem 2.2rem;
   color: var(--muted);
