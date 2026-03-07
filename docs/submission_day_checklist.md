@@ -9,6 +9,8 @@ Target delivery: **Sunday, March 8, 2026**.
 make demo-check
 make submission-bundle
 make submission-audit
+# opzionale (solo se credenziali Azure disponibili)
+make azure-live-check
 ```
 
 Expected:
@@ -16,6 +18,7 @@ Expected:
 - demo-check `5/5 passed`
 - new `artifacts/submission_bundle_*.zip`
 - `submission-audit` with no blockers
+- `azure-live-check` passa oppure viene saltato se non attivato
 
 ## 2. Public links (blocking)
 
@@ -34,6 +37,7 @@ make submission-audit
 ## 3. Submission package
 
 Prepare these final assets:
+- GitHub repository must be **public** at submission/review time
 - GitHub repository URL
 - GitHub Pages project site URL
 - Live demo URL

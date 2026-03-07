@@ -1,7 +1,7 @@
-# RiskSentinel — Hackathon Pitch Draft
+# RiskSentinel — Hackathon Pitch
 
 ## One-liner
-RiskSentinel is an agentic systemic-risk simulator that turns "what-if" shock questions into deterministic contagion analytics, GPT-backed strategy, and judge-ready explainability KPIs.
+RiskSentinel is an agentic systemic-risk simulator that turns "what-if" shock questions into deterministic contagion analytics, GPT-backed strategy, and audit-ready explainability.
 
 ## Problem
 Portfolio teams can ask strategic risk questions quickly, but answers are often:
@@ -13,9 +13,9 @@ Portfolio teams can ask strategic risk questions quickly, but answers are often:
 RiskSentinel combines network science and multi-agent orchestration:
 - deterministic shock engine (NetworkX + contagion models),
 - control-plane workflow (`Planner -> Architect+Quant -> Advisor -> Critic`),
-- one-click full demo flow for judges (Build + Commander + Autonomous + Co-Pilot),
+- one-click full demo flow (Build + Commander + Autonomous + Co-Pilot),
 - evidence-first outputs with citations and critic gate,
-- judge dashboard metrics for reliability and latency.
+- reliability metrics for critic pass-rate, factual consistency, and latency.
 
 ## Why It Is Novel
 - Hard separation of control plane and LLM reasoning.
@@ -41,12 +41,18 @@ RiskSentinel combines network science and multi-agent orchestration:
 - Stronger trust via explicit evidence and validation gates.
 - Demo-safe reliability with graceful local fallback.
 
+## Limitations (Transparent Scope)
+- Correlation networks capture co-movement, not direct causality.
+- This version uses pre-computed snapshots; live market ingestion is outside current scope.
+- Nonlinear and lead-lag dependencies are partially represented and planned for future extensions.
+
 ## Current Status
 - Core app working on Streamlit.
 - Chainlit chat app available (`apps/chainlit/app.py`).
-- Tests passing: 61.
+- Test suite and deterministic demo checks passing.
 
-## Next Deliverables
-- Final video recording.
-- Final README polish and screenshots.
-- Submission form package.
+## Submission Links
+- Repository: `https://github.com/stefano-blando/risk-sentinel`
+- Project site: `https://stefano-blando.github.io/risk-sentinel/`
+- Live demo app: `https://risk-sentinel-hxq8pzyujwbmbokegefcaq.streamlit.app/`
+- Video demo: to be added after final recording

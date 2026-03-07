@@ -4,7 +4,7 @@
 
 > *"What happens if JPMorgan crashes 40%?"* — Ask a question, watch the contagion spread across 210 S&P 500 stocks in real time.
 
-RiskSentinel is a multi-agent AI system that combines **Network Science** and **Generative AI** to simulate systemic financial risk. A squad of specialized agents builds correlation networks, propagates shock cascades, and delivers actionable risk mitigation advice — all visualized as an interactive animated graph.
+RiskSentinel is a multi-agent AI system that combines **Network Science** and **Generative AI** to simulate systemic financial risk. A squad of specialized agents builds correlation networks, propagates shock cascades, and delivers actionable risk mitigation advice, all visualized as an interactive animated graph.
 
 Built for the **Microsoft AI Dev Days Hackathon 2026**.
 
@@ -18,7 +18,7 @@ Built for the **Microsoft AI Dev Days Hackathon 2026**.
 - Natural language queries: *"What if Tesla crashes 60%?"*
 - Control-plane orchestration (`Planner -> Architect+Quant -> Advisor -> Critic`) with hard guardrails
 - Evidence-RAG context (historical crises + prior runs) injected with citations (`R1..Rn`)
-- Judge dashboard KPIs (critic pass-rate, factual consistency, p95 latency, fallback rate)
+- Reliability dashboard KPIs (critic pass-rate, factual consistency, p95 latency, fallback rate)
 - One-click `Run Full Agentic Demo` flow (Build + Commander + Autonomous + Co-Pilot)
 - Agentic Ops pack: Scenario Commander, Autonomous Stress Test, Portfolio Co-Pilot
 - Auto-generated portfolio from network topology (PageRank + sector diversification)
@@ -77,9 +77,9 @@ Streamlit/Chainlit output + explainability trace + judge KPIs
 | Component | Technology |
 |-----------|------------|
 | Agent Orchestration | **Microsoft Agent Framework** (`agent-framework`) |
-| Agent Hosting | **Azure AI Foundry** Agent Service |
+| Azure Integration | **Azure OpenAI** (GPT-4o / GPT-4o-mini) |
 | LLM | **Azure OpenAI GPT-4o** |
-| Tool Integration | **Azure MCP** (Model Context Protocol) |
+| Tool Contract | **MCP-compatible JSON envelope** for tool outputs |
 | Network Engine | NetworkX |
 | Visualization | Streamlit + Plotly (native animation frames) |
 | Data | S&P 500, 210 stocks, 3,081 daily snapshots (2013–2025) |
@@ -87,8 +87,8 @@ Streamlit/Chainlit output + explainability trace + judge KPIs
 ### Hero Technologies
 
 1. **Microsoft Agent Framework** — Multi-agent orchestration with agent-as-tool pattern
-2. **Microsoft Foundry** — Azure AI Foundry for model hosting and agent service
-3. **Azure MCP** — Tool integration layer
+2. **Azure OpenAI** — cloud LLM inference with deployment routing and fallback
+3. **MCP-compatible Tool Contract** — structured tool result format for robust orchestration
 
 ---
 
@@ -155,10 +155,18 @@ CHAINLIT_USE_GPT=1 python -m chainlit run apps/chainlit/app.py -w
 - If PhD `data/processed` files are not present, app auto-falls back to a deterministic synthetic demo dataset.
 - Optional: set `RISKSENTINEL_DATA_ROOT` in Streamlit secrets/env to point to real processed files.
 
+### Public Links
+
+- Repository: `https://github.com/stefano-blando/risk-sentinel`
+- Project site: `https://stefano-blando.github.io/risk-sentinel/`
+- Live demo app: `https://risk-sentinel-hxq8pzyujwbmbokegefcaq.streamlit.app/`
+- Video demo: to be added after recording
+
 ### Hackathon Docs
 
-- Pitch draft: `docs/pitch.md`
+- Pitch: `docs/pitch.md`
 - Demo script: `docs/demo_script.md`
+- Teleprompter script: `docs/demo_script_teleprompter.md`
 - Architecture diagram: `docs/architecture_diagram.md`
 
 ### Project Website (Judge Landing)
@@ -237,6 +245,14 @@ pytest tests/ -v
 
 Unit tests cover data loading, network construction, contagion models, control plane, gateway, evaluation, Evidence-RAG, agentic ops, and reporting serialization.
 
+### Optional Azure Live Smoke Test
+
+```bash
+RUN_AZURE_INTEGRATION_TESTS=1 pytest -q tests/test_azure_live_integration.py
+```
+
+This test is skipped by default and runs only when Azure credentials are configured.
+
 ## Demo Reliability & Submission
 
 ```bash
@@ -248,6 +264,12 @@ make submission-audit
 - `make demo-check` runs deterministic smoke checks for the 5 showcase crisis scenarios and writes `artifacts/demo_check_latest.json`.
 - `make submission-bundle` creates a timestamped zip in `artifacts/` with docs, screenshot, and manifest metadata.
 - `make submission-audit` verifies blockers (missing public links, missing artifacts, dirty tree) and writes `artifacts/submission_audit_latest.json`.
+
+## Limitations
+
+- The primary network is based on rolling Pearson correlations: it captures co-movement, not direct causality.
+- Lead-lag and nonlinear dependencies are only partially represented in this version.
+- Production real-time ingestion is not included; current runs rely on pre-computed snapshots (plus synthetic cloud fallback).
 
 ---
 
