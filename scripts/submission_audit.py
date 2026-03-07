@@ -31,20 +31,23 @@ def _latest_bundle() -> str:
 
 def _site_link_status() -> dict[str, bool]:
     html = (ROOT / "site" / "index.html").read_text(encoding="utf-8")
-    live_ok = bool(
-        re.search(
-            r"<h3>\s*Live Demo URL\s*</h3>[\s\S]*?<a[^>]+href=\"(?!#)[^\"]+\"",
-            html,
-            re.IGNORECASE,
-        )
-    )
-    video_ok = bool(
-        re.search(
-            r"<h3>\s*Video URL\s*</h3>[\s\S]*?<a[^>]+href=\"(?!#)[^\"]+\"",
-            html,
-            re.IGNORECASE,
-        )
-    )
+
+    def _has_non_placeholder_link(card_title: str) -> bool:
+        # Match each link-card anchor block and verify title + non-placeholder href.
+        for m in re.finditer(r"<a[^>]+class=\"[^\"]*link-card[^\"]*\"[^>]*>[\s\S]*?</a>", html, re.IGNORECASE):
+            block = m.group(0)
+            if not re.search(rf"<h3>\s*{re.escape(card_title)}\s*</h3>", block, re.IGNORECASE):
+                continue
+            href_m = re.search(r'href=\"([^\"]+)\"', block, re.IGNORECASE)
+            if not href_m:
+                continue
+            href = href_m.group(1).strip()
+            if href and href != "#":
+                return True
+        return False
+
+    live_ok = _has_non_placeholder_link("Live Demo URL")
+    video_ok = _has_non_placeholder_link("Video URL")
     return {"live_demo_link_set": live_ok, "video_link_set": video_ok}
 
 
