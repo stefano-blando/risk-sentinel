@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=5" />
+  <link rel="stylesheet" href="./styles.css?v=6" />
 </head>
 <body>
   <div class="bg-glow"></div>
@@ -82,10 +82,6 @@
       </div>
     </section>
 
-    <section class="showcase reveal">
-      <img src="./assets/risksentinel.jpg" alt="RiskSentinel dashboard screenshot" />
-    </section>
-
     <section id="network-dynamics" class="reveal">
       <div class="section-head">
         <p class="eyebrow">Network Dynamics</p>
@@ -94,9 +90,16 @@
       <div class="network-stage">
         <canvas id="network-canvas" aria-label="Animated systemic risk network graph"></canvas>
         <div class="network-overlay">
-          <p>Shock node: <strong>JPM</strong></p>
-          <p>Model vibe: <strong>DebtRank-style wave propagation</strong></p>
+          <p>Mode: <strong id="network-mode-label">Stress</strong></p>
+          <p>Wave depth: <strong id="network-wave-depth">0</strong></p>
+          <p>Affected nodes: <strong id="network-affected">0%</strong></p>
         </div>
+      </div>
+      <div class="network-controls">
+        <button class="net-btn is-active" data-net-mode="stress" type="button">Stress</button>
+        <button class="net-btn" data-net-mode="calm" type="button">Calm</button>
+        <button class="net-btn" data-net-mode="crisis" type="button">Crisis</button>
+        <button class="net-btn net-btn-toggle" id="net-toggle" type="button">Pause</button>
       </div>
     </section>
 
@@ -221,6 +224,6 @@
     <p>Built by Stefano Blando · RiskSentinel · 2026</p>
   </footer>
 
-  <script src="./app.js?v=5"></script>
+  <script src="./app.js?v=6"></script>
 </body>
 </html>

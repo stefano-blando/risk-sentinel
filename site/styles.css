@@ -133,7 +133,6 @@ section {
 .demo-steps article,
 .proof-grid article,
 .link-card,
-.showcase img,
 .flow-row {
   border-radius: var(--radius);
   border: 1px solid var(--line);
@@ -273,12 +272,6 @@ section {
   color: var(--muted);
 }
 
-.showcase img {
-  width: 100%;
-  display: block;
-  padding: 0.5rem;
-}
-
 .network-stage {
   margin-top: 1rem;
   position: relative;
@@ -316,6 +309,38 @@ section {
 
 .network-overlay strong {
   color: var(--ink);
+}
+
+.network-controls {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.net-btn {
+  border: 1px solid var(--line);
+  background: rgba(19, 31, 55, 0.82);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 0.38rem 0.72rem;
+  font: 500 0.75rem/1 "IBM Plex Mono", monospace;
+  cursor: pointer;
+}
+
+.net-btn:hover {
+  border-color: var(--blue);
+  color: var(--ink);
+}
+
+.net-btn.is-active {
+  border-color: #355c97;
+  color: var(--ink);
+  background: linear-gradient(110deg, #123568 0%, #1a4f92 45%, #0f6ea2 100%);
+}
+
+.net-btn-toggle {
+  margin-left: auto;
 }
 
 .section-head h2 {
@@ -471,5 +496,9 @@ footer {
     left: 0.6rem;
     top: 0.6rem;
     padding: 0.45rem 0.58rem;
+  }
+
+  .net-btn-toggle {
+    margin-left: 0;
   }
 }
