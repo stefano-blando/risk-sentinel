@@ -403,6 +403,7 @@ defaults = {
     "rag_last_docs": [],
     "judge_kpis": {},
     "critic_auto_repair": True,
+    "evidence_gate_strict": True,
     "use_session_memory": True,
     "session_decisions": [],
     "commander_results": None,
@@ -1115,6 +1116,7 @@ def build_structured_prompt(
     risk_profile: str,
     memory_hint: str = "",
     rag_context: str = "",
+    evidence_gate_strict: bool = True,
 ) -> str:
     profile_hint = RISK_PROFILE_GUIDANCE.get(risk_profile, RISK_PROFILE_GUIDANCE["balanced"])
     memory_block = f"Episodic memory hints:\n{memory_hint}\n\n" if memory_hint else ""
@@ -1144,7 +1146,11 @@ def build_structured_prompt(
         "- Return uncertainty_score between 0.0 and 1.0.\n",
         f"- Risk profile to optimize for: {risk_profile} ({profile_hint})\n",
         "- In evidence_used, include only E#/R# references actually used.\n",
-        "- Any numeric claim must be traceable via evidence_used references.\n",
+        (
+            "- Any numeric claim must be traceable via evidence_used references.\n"
+            if evidence_gate_strict
+            else "- Numeric claim references are recommended where available.\n"
+        ),
         "- If RAG context is used, cite only the retrieved R# references.\n",
         "- If facts are insufficient, set insufficient_data=true and explain in notes.\n\n",
         f"Deterministic facts:\n{facts_plain}\n\n",
@@ -3373,6 +3379,7 @@ if incoming_query:
         "strategy": st.session_state.agent_strategy,
         "high_quality_mode": st.session_state.high_quality_mode,
         "gpt_for_parseable_queries": st.session_state.gpt_for_parseable_queries,
+        "evidence_gate_strict": st.session_state.evidence_gate_strict,
         "risk_profile": st.session_state.risk_profile,
         "tool_contract_version": "mcp.tool.result.v1",
         "primary_deployment": primary_deployment,
@@ -3681,6 +3688,7 @@ if incoming_query:
                     risk_profile=st.session_state.risk_profile,
                     memory_hint=memory_hint,
                     rag_context=rag_context,
+                    evidence_gate_strict=bool(st.session_state.evidence_gate_strict),
                 )
                 if compare_query:
                     prompt_for_agent += (
@@ -3708,6 +3716,8 @@ if incoming_query:
                             trace["result"]["critic_approved"] = bool(validation.get("critic_approved"))
                             if "critic_rounds" in validation:
                                 trace["result"]["critic_rounds"] = int(validation.get("critic_rounds") or 0)
+                            if isinstance(validation.get("local_evidence_gate"), dict):
+                                trace["result"]["local_evidence_gate"] = validation.get("local_evidence_gate")
                         formatted_answer = render_structured_payload_html(payload)
                     else:
                         trace["result"]["structured_output_valid"] = False
@@ -3771,9 +3781,10 @@ if incoming_query:
                         local_gate = validate_payload_evidence(
                             payload_curr,
                             allowed_r_refs=set(trace["policy"].get("rag_refs", [])),
-                            require_reference_for_numeric_claims=True,
+                            require_reference_for_numeric_claims=bool(st.session_state.evidence_gate_strict),
                             facts_available=(facts_mode != "none"),
                         )
+                        trace["result"]["local_evidence_gate"] = local_gate
                         trace_event(
                             trace,
                             "evidence_gate",
@@ -3855,7 +3866,7 @@ if incoming_query:
                     cache_gate = validate_payload_evidence(
                         cache_entry["payload"],
                         allowed_r_refs=set(trace["policy"].get("rag_refs", [])),
-                        require_reference_for_numeric_claims=True,
+                        require_reference_for_numeric_claims=bool(st.session_state.evidence_gate_strict),
                         facts_available=(facts_mode != "none"),
                     )
                     if not cache_gate["approved"]:
@@ -3864,6 +3875,7 @@ if incoming_query:
                             "gpt_cache_rejected",
                             f"issues={len(cache_gate['issues'])}",
                         )
+                        trace["policy"]["cache_rejection_evidence_gate"] = cache_gate
                         cache_entry = None
                         cache_mode = "none"
                 trace["policy"]["cache_hit"] = bool(cache_entry)
@@ -4060,6 +4072,7 @@ if incoming_query:
         "structured_output_valid": bool(prev_result.get("structured_output_valid", False)),
         "critic_approved": prev_result.get("critic_approved"),
         "critic_rounds": prev_result.get("critic_rounds"),
+        "local_evidence_gate": prev_result.get("local_evidence_gate"),
         "uncertainty_score": prev_result.get("uncertainty_score"),
         "confidence_reason": prev_result.get("confidence_reason"),
     }
@@ -4418,10 +4431,23 @@ with tab_explain:
                     "planned_steps_count": len(p.get("planned_steps", []) or []),
                     "session_memory_enabled": st.session_state.use_session_memory,
                     "critic_auto_repair": st.session_state.critic_auto_repair,
+                    "evidence_gate_strict": st.session_state.evidence_gate_strict,
                     "engine": r.get("engine"),
                     "timings": t,
                 }
             )
+
+        gate_info = r.get("local_evidence_gate")
+        cache_gate_info = p.get("cache_rejection_evidence_gate")
+        if gate_info or cache_gate_info:
+            with st.expander("Evidence gate checks", expanded=False):
+                if gate_info:
+                    st.json({"runtime_gate": gate_info})
+                    if not gate_info.get("approved", True):
+                        st.warning("Runtime evidence gate flagged issues before/with critic validation.")
+                if cache_gate_info:
+                    st.json({"cache_gate_rejection": cache_gate_info})
+                    st.info("One cached answer was rejected by evidence gate and not reused.")
 
         with st.expander("Policy ↔ Executor Split", expanded=False):
             if planned_steps:
@@ -4645,6 +4671,14 @@ with tab_settings:
         value=st.session_state.critic_auto_repair,
         disabled=not st.session_state.agent_mode,
         help="When enabled, failed critic checks trigger one automatic revision pass.",
+    )
+    st.session_state.evidence_gate_strict = st.toggle(
+        "Strict evidence gate",
+        value=st.session_state.evidence_gate_strict,
+        disabled=not st.session_state.agent_mode,
+        help=(
+            "When enabled, numeric claims must include E#/R# references and unknown R# refs are rejected."
+        ),
     )
     st.session_state.use_session_memory = st.toggle(
         "Use session memory hints",
