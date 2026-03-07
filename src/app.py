@@ -4054,6 +4054,7 @@ if incoming_query:
         "engine": engine_label,
         "state": run_state,
         "critic_rounds": prev_result.get("critic_rounds"),
+        "local_evidence_gate": prev_result.get("local_evidence_gate"),
         "gpt_calls_total_session": st.session_state.gpt_calls_total_session,
         "gpt_rate_limit_hits": st.session_state.gpt_rate_limit_hits,
         "gpt_fail_streak": st.session_state.gpt_fail_streak,
@@ -4092,16 +4093,39 @@ if st.session_state.graph_data:
     gd = st.session_state.graph_data
     m = gd["metrics"]
     sr = st.session_state.shock_result
-    cols = st.columns(7 if sr else 5)
-    cols[0].metric("Nodes", m["n_nodes"])
-    cols[1].metric("Edges", f"{m['n_edges']:,}")
-    cols[2].metric("Density", f"{m['density']:.3f}")
-    cols[3].metric("Regime", gd["regime"])
-    cols[4].metric("VIX", f"{gd['vix']:.1f}")
+    gate_info = {}
+    if isinstance(st.session_state.run_trace, dict):
+        result_now = st.session_state.run_trace.get("result", {})
+        if isinstance(result_now, dict) and isinstance(result_now.get("local_evidence_gate"), dict):
+            gate_info = result_now.get("local_evidence_gate", {})
+    has_gate = bool(gate_info)
+
+    cols_count = 7 if sr else 5
+    if has_gate:
+        cols_count += 1
+    cols = st.columns(cols_count)
+    idx = 0
+    cols[idx].metric("Nodes", m["n_nodes"])
+    idx += 1
+    cols[idx].metric("Edges", f"{m['n_edges']:,}")
+    idx += 1
+    cols[idx].metric("Density", f"{m['density']:.3f}")
+    idx += 1
+    cols[idx].metric("Regime", gd["regime"])
+    idx += 1
+    cols[idx].metric("VIX", f"{gd['vix']:.1f}")
+    idx += 1
+    if has_gate:
+        pass_fail = "PASS" if gate_info.get("approved", False) else "FAIL"
+        issue_count = len(gate_info.get("issues", []) or [])
+        delta = f"{issue_count} issue(s)" if issue_count else "0 issue(s)"
+        cols[idx].metric("Evidence Gate", pass_fail, delta=delta)
+        idx += 1
     if sr:
         summary = sr.summary()
-        cols[5].metric("Cascade", f"{summary['cascade_depth']} waves")
-        cols[6].metric("Avg Stress", f"{summary['avg_stress']*100:.1f}%")
+        cols[idx].metric("Cascade", f"{summary['cascade_depth']} waves")
+        idx += 1
+        cols[idx].metric("Avg Stress", f"{summary['avg_stress']*100:.1f}%")
 
 
 with tab_simulate:
