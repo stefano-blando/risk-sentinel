@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=3" />
+  <link rel="stylesheet" href="./styles.css?v=4" />
 </head>
 <body>
   <div class="bg-glow"></div>
@@ -21,6 +21,7 @@
     </a>
     <nav class="topnav">
       <a href="#architecture">Architecture</a>
+      <a href="#network-wow">Graph</a>
       <a href="#flow">Flow</a>
       <a href="#proof">Proof</a>
       <a href="#links">Links</a>
@@ -86,6 +87,20 @@
 
     <section class="showcase reveal">
       <img src="./assets/risksentinel.jpg" alt="RiskSentinel dashboard screenshot" />
+    </section>
+
+    <section id="network-wow" class="reveal">
+      <div class="section-head">
+        <p class="eyebrow">Visual Wow</p>
+        <h2>Live Contagion Graph Simulation</h2>
+      </div>
+      <div class="network-stage">
+        <canvas id="network-canvas" aria-label="Animated systemic risk network graph"></canvas>
+        <div class="network-overlay">
+          <p>Shock node: <strong>JPM</strong></p>
+          <p>Model vibe: <strong>DebtRank-style wave propagation</strong></p>
+        </div>
+      </div>
     </section>
 
     <section id="architecture" class="reveal">
@@ -209,6 +224,6 @@
     <p>Built by Stefano Blando · RiskSentinel · 2026</p>
   </footer>
 
-  <script src="./app.js?v=3"></script>
+  <script src="./app.js?v=4"></script>
 </body>
 </html>
