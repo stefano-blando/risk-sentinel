@@ -235,6 +235,17 @@ CRISIS_PRESETS = {
     "Russia-Ukraine": {"date": "2022-03-01", "ticker": "XOM", "shock": 50, "threshold": 0.65},
 }
 
+# Synthetic cloud fallback has lower raw correlations than the full PhD dataset.
+# Cap preset thresholds to keep contagion dynamics visible in demo mode.
+if data_loader.is_synthetic_mode():
+    CRISIS_PRESETS = {
+        name: {
+            **params,
+            "threshold": min(float(params.get("threshold", 0.5)), 0.35),
+        }
+        for name, params in CRISIS_PRESETS.items()
+    }
+
 # Guided demo prompts for live presentations.
 DEMO_QUERIES = {
     "1) Fast shock (local)": (
@@ -369,8 +380,10 @@ defaults = {
     "pos": None, "current_wave": -1,
     "sector_dict": None, "tickers": None,
     "chat_history": [], "comparison": None,
-    "sel_date": None, "sel_ticker": "JPM", "sel_shock": 50,
-    "sel_model": "debtrank", "sel_threshold": 0.5,
+    "sel_date": "2023-03-13" if data_loader.is_synthetic_mode() else None,
+    "sel_ticker": "JPM", "sel_shock": 50,
+    "sel_model": "debtrank",
+    "sel_threshold": 0.35 if data_loader.is_synthetic_mode() else 0.5,
     "agent_mode": True, "agent_timeout_sec": 35, "agent_strategy": "simple",
     "high_quality_mode": False,
     "gpt_for_parseable_queries": False,
