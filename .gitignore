@@ -40,6 +40,8 @@ CLAUDE.md
 
 # App runtime artifacts
 artifacts/
+.chainlit/
+chainlit.md
 
 # Local status notes
 STATUS.md
