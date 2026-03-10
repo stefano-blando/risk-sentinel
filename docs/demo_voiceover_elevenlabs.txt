@@ -1,0 +1,25 @@
+RiskSentinel is an agentic platform for systemic risk surveillance, forward stress testing, and intervention analysis.
+
+It helps answer a central question for supervisors and risk teams: where is systemic fragility building, and what happens if a critical node fails?
+
+Here, the Surveillance view summarizes the current regime, sector pressure, and the most systemically vulnerable nodes.
+
+The Outlook layer adds forward-looking monitoring.
+
+It does not claim precise market prediction.
+
+Instead, it provides a baseline for near-term fragility monitoring, watchlist shifts, and synchronized stress playback from the selected focus date.
+
+From there, we can launch a forward stress test on the observed network.
+
+For example, we shock a critical institution, replay contagion waves across the market graph, and identify the nodes and sectors that absorb the largest second-order stress.
+
+This is where RiskSentinel becomes decision-oriented.
+
+We can compare scenarios, inspect vulnerable nodes, and test interventions such as exposure caps, connector removal, or sector firebreaks, before producing a supervisory readout.
+
+Every run remains bounded and auditable.
+
+The platform separates deterministic evidence from the AI interpretation layer, records execution traces, applies critic validation, and exposes quality signals for review.
+
+RiskSentinel turns financial shock questions into fast, explainable, and intervention-ready systemic risk intelligence for real supervisory workflows.

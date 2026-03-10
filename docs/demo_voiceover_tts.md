@@ -1,83 +1,147 @@
 # RiskSentinel - TTS Voiceover Script
 
-Use this version for AI voice generation.
+Use this version for the current app build.
 
 Target length:
-- 95 to 110 seconds at normal pace
-- 85 to 95 seconds at slightly slower "professional demo" pace
+- 95 to 115 seconds at normal pace
+- 85 to 95 seconds at a slightly slower professional demo pace
 
 Recommended usage:
 - Generate the audio first
-- Align cuts and cursor actions to the pause markers
-- If needed, split into 5 clips using the section timestamps
+- Align screen actions to the section timings
+- Use the clean ElevenLabs block at the end when you want plain TTS input only
 
 ## Pronunciation Notes
 
 - Say `JPM` as `J P Morgan`
 - Say `GS` as `Goldman Sachs`
+- Say `NVDA` as `N V D A`
 - Say `GPT` as `G P T`
 - Say `RAG` as `rag`, not spelled out
 - Say `p95` as `P ninety-five`
 
-## Full Voiceover
+## Timed Script With Screen Actions
 
-### 0:00 - 0:12
+### 0:00 - 0:10
 
-RiskSentinel is an agentic systemic risk simulator for financial contagion. [pause]
-It combines deterministic network science with AI-assisted analysis [pause]
-to turn shock scenarios into fast, auditable decisions.
+Screen:
+- Open the app home
+- Show the main tabs: `Stress Lab`, `Surveillance`, `Outlook`, `Audit Trail`
 
-### 0:12 - 0:32
+Voice:
 
-Here, I open the core app and replay a real stress event. [pause]
-With one click, the platform loads the market network, [pause]
-computes contagion dynamics, [pause]
-and shows how stress spreads across connected institutions.
+RiskSentinel is an agentic platform for systemic risk surveillance, forward stress testing, and intervention analysis.
 
-### 0:32 - 0:48
+### 0:10 - 0:25
 
-Next, I compare three propagation models side by side. [pause]
-This matters because risk conclusions should not depend on a single modeling assumption. [pause]
-We can inspect affected nodes, cascade depth, and total stress.
+Screen:
+- Open `Surveillance`
+- Show regime, fragility trend, sector pressure, and ranked nodes
 
-### 0:48 - 1:20
+Voice:
 
-Now I run a higher-level agentic query. [pause]
-For example: compare J P Morgan and Goldman Sachs on December first, twenty twenty-five, [pause]
-highlight cascade depth and sector concentration, [pause]
-then propose a hedging plan. [pause]
+It helps answer a central question for supervisors and risk teams: where is systemic fragility building, and what happens if a critical node fails?
 
-The control plane stays bounded and reliable. [pause]
-The Planner defines the workflow. [pause]
-The Architect and Quant run the deterministic analysis. [pause]
-The Advisor synthesizes the result. [pause]
-And the Critic validates consistency against evidence.
+Here, the Surveillance view summarizes the current regime, sector pressure, and the most systemically vulnerable nodes.
 
-### 1:20 - 1:42
+### 0:25 - 0:42
 
-The explainability layer shows exactly why the answer can be trusted. [pause]
-We expose deterministic facts, retrieved crisis evidence, [pause]
-and verification signals such as critic pass rate, factual consistency, p ninety-five latency, and fallback behavior.
+Screen:
+- Open `Outlook`
+- Stay on `Monitor`
+- Show focus date, checkpoint outlook, and watchlist
 
-### 1:42 - 1:56
+Voice:
 
-Finally, I export the submission bundle. [pause]
-This packages the report, traces, and reproducibility metadata [pause]
-for a clean hackathon review flow.
+The Outlook layer adds forward-looking monitoring.
 
-### 1:56 - 2:04
+It does not claim precise market prediction.
 
-RiskSentinel delivers fast, explainable, and decision-ready systemic risk intelligence, [pause]
-with robust fallback behavior for real demo conditions.
+Instead, it provides a baseline for near-term fragility monitoring, watchlist shifts, and synchronized stress playback from the selected focus date.
+
+### 0:42 - 1:02
+
+Screen:
+- Move to `Outlook` -> `Stress Test`
+- Pick a scenario card or run a shock on `JPM` or `NVDA`
+- Launch `Run Shock Playback`
+- Show the animated network and top vulnerable nodes
+
+Voice:
+
+From there, we can launch a forward stress test on the observed network.
+
+For example, we shock a critical institution, replay contagion waves across the market graph, and identify the nodes and sectors that absorb the largest second-order stress.
+
+### 1:02 - 1:20
+
+Screen:
+- Show `Scenario Compare`
+- Show `Policy Intervention`
+- Show before and after metrics or the intervention readout
+
+Voice:
+
+This is where RiskSentinel becomes decision-oriented.
+
+We can compare scenarios, inspect vulnerable nodes, and test interventions such as exposure caps, connector removal, or sector firebreaks, before producing a supervisory readout.
+
+### 1:20 - 1:38
+
+Screen:
+- Open `Audit Trail`
+- Show traces, evidence, quality signals, and export bundle
+
+Voice:
+
+Every run remains bounded and auditable.
+
+The platform separates deterministic evidence from the AI interpretation layer, records execution traces, applies critic validation, and exposes quality signals for review.
+
+### 1:38 - 1:52
+
+Screen:
+- Return to a strong closing surface, ideally `Surveillance` or `Outlook`
+
+Voice:
+
+RiskSentinel turns financial shock questions into fast, explainable, and intervention-ready systemic risk intelligence for real supervisory workflows.
+
+## ElevenLabs Clean Paste
+
+RiskSentinel is an agentic platform for systemic risk surveillance, forward stress testing, and intervention analysis.
+
+It helps answer a central question for supervisors and risk teams: where is systemic fragility building, and what happens if a critical node fails?
+
+Here, the Surveillance view summarizes the current regime, sector pressure, and the most systemically vulnerable nodes.
+
+The Outlook layer adds forward-looking monitoring.
+
+It does not claim precise market prediction.
+
+Instead, it provides a baseline for near-term fragility monitoring, watchlist shifts, and synchronized stress playback from the selected focus date.
+
+From there, we can launch a forward stress test on the observed network.
+
+For example, we shock a critical institution, replay contagion waves across the market graph, and identify the nodes and sectors that absorb the largest second-order stress.
+
+This is where RiskSentinel becomes decision-oriented.
+
+We can compare scenarios, inspect vulnerable nodes, and test interventions such as exposure caps, connector removal, or sector firebreaks, before producing a supervisory readout.
+
+Every run remains bounded and auditable.
+
+The platform separates deterministic evidence from the AI interpretation layer, records execution traces, applies critic validation, and exposes quality signals for review.
+
+RiskSentinel turns financial shock questions into fast, explainable, and intervention-ready systemic risk intelligence for real supervisory workflows.
 
 ## Shorter Closing Variant
 
-RiskSentinel turns shock scenarios into reliable, explainable, and audit-ready risk intelligence.
+RiskSentinel turns financial shock questions into fast, explainable, and intervention-ready systemic risk intelligence.
 
 ## Backup Line If GPT Is Unavailable
 
-If cloud G P T is unavailable, RiskSentinel still completes the deterministic pipeline [pause]
-and returns robust quantitative outputs.
+If cloud G P T is unavailable, RiskSentinel still completes the deterministic surveillance and stress-testing pipeline, and returns robust quantitative outputs.
 
 ## Suggested TTS Settings
 
@@ -105,7 +169,7 @@ and returns robust quantitative outputs.
 
 ## Editing Tips
 
-- Keep mouse movement minimal during pauses
-- Cut dead time between sections, not inside spoken phrases
-- Show the result panel before the line that explains it
-- If the video feels rushed, remove the model-comparison sentence before cutting the closing
+- Keep mouse movement minimal during spoken lines
+- Cut dead time between sections, not inside the sentence
+- Show the target screen before the narration explains it
+- If the final edit feels rushed, shorten the intervention sentence before cutting the close
