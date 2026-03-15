@@ -192,6 +192,14 @@ def build_animated_figure(
             if wave_no <= wave_idx:
                 for node in nodes:
                     stress_map[node] = result.node_stress[node]
+        # Cascade-removal can assign stress to neighbors that never cross the
+        # failure threshold; they won't appear in cascade_waves. Show the full
+        # final stress map on the last frame to avoid a misleading "single-node"
+        # visualization when impact is contained but non-zero.
+        if getattr(result, "model", "") == "cascade_removal" and wave_idx == n_waves:
+            for node, node_stress in result.node_stress.items():
+                if node in stress_map:
+                    stress_map[node] = max(stress_map[node], float(node_stress))
         return stress_map
 
     frames = []
