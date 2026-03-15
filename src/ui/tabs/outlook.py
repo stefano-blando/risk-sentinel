@@ -561,6 +561,7 @@ def render_tab(ctx: dict[str, object]) -> None:
                     shock_fig,
                     use_container_width=True,
                     config={"displayModeBar": False, "scrollZoom": True},
+                    key="outlook_shock_playback_chart",
                 )
                 st.caption(
                     f"Shock playback uses the observed network nearest to `{shock_bundle['date']}` with "
