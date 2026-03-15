@@ -1989,18 +1989,13 @@ if incoming_query:
             eta_box.caption(f"ETA: {max(0.0, eta_sec):.1f}s")
 
         def _run_with_heartbeat(callable_fn, phase_text: str, eta_sec: float):
-            pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-            future = pool.submit(callable_fn)
-            try:
-                while not future.done():
-                    _heartbeat(phase_text, eta_sec - (time.perf_counter() - t_start))
-                    if st.session_state.run_cancel_requested:
-                        future.cancel()
-                        raise RuntimeError("RunCancelledByUser")
-                    time.sleep(0.25)
-                return future.result()
-            finally:
-                pool.shutdown(wait=False, cancel_futures=True)
+            # Run GPT calls on the main Streamlit script thread. The Agent
+            # Framework / Azure stack can touch context that is not safe to
+            # access from a worker thread, which surfaces as NoSessionContext.
+            _heartbeat(phase_text, eta_sec)
+            if st.session_state.run_cancel_requested:
+                raise RuntimeError("RunCancelledByUser")
+            return callable_fn()
 
         _step(10, "Parsing user input")
         trace_event(
