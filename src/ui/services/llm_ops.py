@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import importlib.metadata
+import socket
+import ssl
 import time
+from urllib.parse import urlparse
 
 from src.agents.critic import create_critic_agent
 from src.agents.orchestrator import (
@@ -240,6 +243,20 @@ def run_gpt_diagnostic(run_agent_query_fn) -> str:
         lines.append(f"agent_framework_pkg={importlib.metadata.version('agent-framework')}")
     except Exception:
         lines.append("agent_framework_pkg=unknown")
+    try:
+        parsed = urlparse(settings.AZURE_OPENAI_ENDPOINT)
+        host = parsed.netloc or parsed.path
+        lines.append(f"endpoint_host={host}")
+        dns_rows = socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
+        ips = sorted({row[4][0] for row in dns_rows})
+        lines.append(f"dns_lookup=OK ips={','.join(ips[:4])}")
+        ctx = ssl.create_default_context()
+        with socket.create_connection((host, 443), timeout=8) as sock:
+            with ctx.wrap_socket(sock, server_hostname=host) as tls_sock:
+                cipher = tls_sock.cipher()
+                lines.append(f"tls_handshake=OK cipher={cipher[0] if cipher else 'unknown'}")
+    except Exception as exc:
+        lines.append(f"network_probe=ERR {type(exc).__name__}: {exc}")
 
     t0 = time.perf_counter()
     try:
