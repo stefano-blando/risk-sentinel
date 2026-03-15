@@ -166,6 +166,40 @@ def test_load_network_features() -> None:
     _assert_has_columns(network_features, ["density", "avg_degree"])
 
 
+def test_load_network_features_backfills_avg_abs_weight(monkeypatch: pytest.MonkeyPatch) -> None:
+    idx = pd.to_datetime(["2025-01-02", "2025-01-03", "2025-01-06"])
+    features = pd.DataFrame(
+        {
+            "density": [0.2, 0.21, 0.22],
+            "avg_weight": [-0.3, -0.25, -0.2],
+            "avg_clustering": [0.4, 0.41, 0.42],
+        },
+        index=idx,
+    )
+    regime = pd.DataFrame(
+        {
+            "Regime": ["Calm", "Normal", "Elevated"],
+            "Regime_Numeric": [0, 1, 2],
+            "VIX": [14.0, 18.0, 22.0],
+        },
+        index=idx,
+    )
+
+    def fake_loader(filename: str, _synthetic_key: str) -> pd.DataFrame:
+        if filename == "network_features.parquet":
+            return features.copy()
+        if filename == "regime_data.parquet":
+            return regime.copy()
+        raise AssertionError(f"Unexpected filename: {filename}")
+
+    monkeypatch.setattr(dl, "_load_parquet_or_synthetic", fake_loader)
+
+    out = dl.load_network_features()
+
+    assert "avg_abs_weight" in out.columns
+    assert out["avg_abs_weight"].tolist() == [0.3, 0.25, 0.2]
+
+
 def test_load_sector_centralities() -> None:
     _require_file(dl.FINAL / "sector_centrality_features.parquet")
     sector_centralities = dl.load_sector_centralities()

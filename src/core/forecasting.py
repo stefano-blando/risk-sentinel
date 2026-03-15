@@ -76,6 +76,19 @@ def build_direct_feature_frame(network_features: pd.DataFrame, regime_data: pd.D
     frame = frame.join(aligned_regime, how="inner")
     if "vix" not in frame.columns and "VIX" in regime_data.columns:
         frame = frame.join(regime_data[["VIX"]].rename(columns={"VIX": "vix"}), how="left")
+    if "density" not in frame.columns:
+        frame["density"] = 0.0
+    if "avg_clustering" not in frame.columns:
+        frame["avg_clustering"] = 0.0
+    if "avg_abs_weight" not in frame.columns:
+        if "abs_weight" in frame.columns:
+            frame["avg_abs_weight"] = pd.to_numeric(frame["abs_weight"], errors="coerce").abs()
+        elif "avg_weight" in frame.columns:
+            frame["avg_abs_weight"] = pd.to_numeric(frame["avg_weight"], errors="coerce").abs()
+        else:
+            frame["avg_abs_weight"] = 0.0
+    if "regime_numeric" not in frame.columns:
+        frame["regime_numeric"] = 0.0
     frame["regime_numeric"] = frame["regime_numeric"].astype(float)
     frame["risk_pressure"] = (
         frame["density"].astype(float) * frame["avg_abs_weight"].astype(float) * (1.0 + frame["regime_numeric"])

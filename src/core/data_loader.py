@@ -191,6 +191,52 @@ def _normalize_regime_data(frame: pd.DataFrame) -> pd.DataFrame:
     return normalized
 
 
+def _normalize_network_features(frame: pd.DataFrame) -> pd.DataFrame:
+    normalized = frame.copy().sort_index()
+    if "density" not in normalized.columns:
+        normalized["density"] = 0.0
+    if "avg_clustering" not in normalized.columns:
+        normalized["avg_clustering"] = 0.0
+    if "avg_abs_weight" not in normalized.columns:
+        if "abs_weight" in normalized.columns:
+            normalized["avg_abs_weight"] = pd.to_numeric(normalized["abs_weight"], errors="coerce").abs()
+        elif "avg_weight" in normalized.columns:
+            normalized["avg_abs_weight"] = pd.to_numeric(normalized["avg_weight"], errors="coerce").abs()
+        else:
+            try:
+                metrics = load_network_metrics()
+            except Exception:
+                metrics = pd.DataFrame(index=normalized.index)
+            if "avg_abs_weight" in metrics.columns:
+                aligned = metrics["avg_abs_weight"].reindex(normalized.index)
+                normalized["avg_abs_weight"] = pd.to_numeric(aligned, errors="coerce")
+            elif "avg_weight" in metrics.columns:
+                aligned = metrics["avg_weight"].reindex(normalized.index)
+                normalized["avg_abs_weight"] = pd.to_numeric(aligned, errors="coerce").abs()
+            else:
+                normalized["avg_abs_weight"] = 0.0
+
+    if "vix" not in normalized.columns:
+        try:
+            regime = load_regime_data()
+            if "VIX" in regime.columns:
+                normalized["vix"] = pd.to_numeric(regime["VIX"].reindex(normalized.index), errors="coerce")
+        except Exception:
+            pass
+    if "vix" not in normalized.columns:
+        normalized["vix"] = 0.0
+
+    normalized["density"] = pd.to_numeric(normalized["density"], errors="coerce")
+    normalized["avg_clustering"] = pd.to_numeric(normalized["avg_clustering"], errors="coerce")
+    normalized["avg_abs_weight"] = pd.to_numeric(normalized["avg_abs_weight"], errors="coerce")
+    normalized["vix"] = pd.to_numeric(normalized["vix"], errors="coerce")
+    normalized["density"] = normalized["density"].ffill().bfill().fillna(0.0)
+    normalized["avg_clustering"] = normalized["avg_clustering"].ffill().bfill().fillna(0.0)
+    normalized["avg_abs_weight"] = normalized["avg_abs_weight"].ffill().bfill().fillna(0.0)
+    normalized["vix"] = normalized["vix"].ffill().bfill().fillna(0.0)
+    return normalized
+
+
 def _build_synthetic_dataset() -> dict:
     rng = np.random.default_rng(20260307)
 
@@ -338,6 +384,7 @@ def _build_synthetic_dataset() -> dict:
 
     network_features = pd.DataFrame(index=network_metrics.index)
     network_features["density"] = network_metrics["density"]
+    network_features["avg_abs_weight"] = network_metrics["avg_abs_weight"]
     network_features["avg_degree"] = network_metrics["avg_degree"]
     network_features["avg_clustering"] = network_metrics["avg_clustering"]
     network_features["largest_cc_pct"] = network_metrics["largest_cc_pct"]
@@ -449,7 +496,8 @@ def load_network_metrics() -> pd.DataFrame:
 
 def load_network_features() -> pd.DataFrame:
     """Topological feature matrix."""
-    return _load_parquet_or_synthetic("network_features.parquet", "network_features")
+    frame = _load_parquet_or_synthetic("network_features.parquet", "network_features")
+    return _normalize_network_features(frame)
 
 
 def load_sector_centralities() -> pd.DataFrame:

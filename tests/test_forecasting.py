@@ -2,6 +2,7 @@ import pandas as pd
 
 from src.core.forecasting import (
     aggregate_fold_reports,
+    build_direct_feature_frame,
     build_walk_forward_folds,
     build_forecast_frame,
     evaluate_regime,
@@ -149,3 +150,29 @@ def test_evaluate_regime_ignores_non_finite_values() -> None:
     metrics = evaluate_regime(actual, predicted)
 
     assert metrics["accuracy"] == 1.0
+
+
+def test_build_direct_feature_frame_handles_missing_avg_abs_weight() -> None:
+    dates = pd.bdate_range("2025-01-02", periods=5)
+    network_features = pd.DataFrame(
+        {
+            "density": [0.20, 0.21, 0.22, 0.23, 0.24],
+            "avg_weight": [-0.30, -0.25, -0.20, -0.15, -0.10],
+            "avg_clustering": [0.40, 0.41, 0.42, 0.43, 0.44],
+        },
+        index=dates,
+    )
+    regime_data = pd.DataFrame(
+        {
+            "Regime_Numeric": [0, 1, 1, 2, 2],
+            "VIX": [15.0, 17.0, 18.0, 21.0, 22.0],
+        },
+        index=dates,
+    )
+
+    frame = build_direct_feature_frame(network_features, regime_data)
+
+    assert "avg_abs_weight" in frame.columns
+    assert (frame["avg_abs_weight"] >= 0.0).all()
+    assert "risk_pressure" in frame.columns
+    assert frame["risk_pressure"].notna().all()
