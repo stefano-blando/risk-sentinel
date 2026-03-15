@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import importlib.metadata
 import time
 
 from src.agents.critic import create_critic_agent
@@ -231,6 +232,14 @@ def run_gpt_diagnostic(run_agent_query_fn) -> str:
     lines.append(f"deployment={settings.AZURE_OPENAI_DEPLOYMENT}")
     lines.append(f"fallback_deployment={settings.AZURE_OPENAI_FALLBACK_DEPLOYMENT}")
     lines.append(f"api_version={settings.AZURE_OPENAI_API_VERSION}")
+    try:
+        lines.append(f"openai_pkg={importlib.metadata.version('openai')}")
+    except Exception:
+        lines.append("openai_pkg=unknown")
+    try:
+        lines.append(f"agent_framework_pkg={importlib.metadata.version('agent-framework')}")
+    except Exception:
+        lines.append("agent_framework_pkg=unknown")
 
     t0 = time.perf_counter()
     try:

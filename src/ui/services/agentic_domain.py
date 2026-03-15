@@ -336,4 +336,15 @@ def get_agent_config_status(get_settings_fn) -> tuple[bool, str]:
     endpoint = str(getattr(settings, "AZURE_OPENAI_ENDPOINT", "")).strip()
     if ".openai.azure.com" not in endpoint:
         return False, "AZURE_OPENAI_ENDPOINT must point to your Azure OpenAI resource (*.openai.azure.com)."
+    try:
+        from src.utils.azure_config import get_agent_framework_chat_client
+
+        client = get_agent_framework_chat_client(
+            deployment_name=str(getattr(settings, "AZURE_OPENAI_FALLBACK_DEPLOYMENT", "")).strip()
+            or str(getattr(settings, "AZURE_OPENAI_DEPLOYMENT", "")).strip()
+        )
+        if not hasattr(client, "as_agent"):
+            return False, "Installed agent-framework client is incompatible: missing as_agent(). Pin agent-framework==1.0.0rc1."
+    except Exception as exc:
+        return False, f"Agent runtime init failed: {type(exc).__name__}: {exc}"
     return True, ""

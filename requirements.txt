@@ -1,5 +1,5 @@
 # Microsoft Agent Framework (successor to AutoGen + Semantic Kernel)
-agent-framework
+agent-framework==1.0.0rc1
 
 # Azure AI / Foundry
 azure-ai-projects
