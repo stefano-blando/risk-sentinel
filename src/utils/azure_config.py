@@ -28,6 +28,7 @@ def _get_settings_class():
             AZURE_OPENAI_DEPLOYMENT: str = "gpt-4o"
             AZURE_OPENAI_FALLBACK_DEPLOYMENT: str = "gpt-4o-mini"
             AZURE_OPENAI_API_VERSION: str = "2025-03-01-preview"
+            AZURE_OPENAI_AGENT_API_VERSION: str = "preview"
             AZURE_AI_PROJECT_ENDPOINT: str = ""
             AZURE_SUBSCRIPTION_ID: str = ""
             AZURE_RESOURCE_GROUP: str = ""
@@ -45,6 +46,7 @@ def _get_settings_class():
         AZURE_OPENAI_DEPLOYMENT: str = "gpt-4o"
         AZURE_OPENAI_FALLBACK_DEPLOYMENT: str = "gpt-4o-mini"
         AZURE_OPENAI_API_VERSION: str = "2025-03-01-preview"
+        AZURE_OPENAI_AGENT_API_VERSION: str = "preview"
         AZURE_AI_PROJECT_ENDPOINT: str = ""
         AZURE_SUBSCRIPTION_ID: str = ""
         AZURE_RESOURCE_GROUP: str = ""
@@ -125,7 +127,7 @@ def get_agent_framework_chat_client(deployment_name: str | None = None) -> Any:
         api_key=settings.AZURE_OPENAI_API_KEY,
         deployment_name=deployment,
         endpoint=settings.AZURE_OPENAI_ENDPOINT,
-        api_version=settings.AZURE_OPENAI_API_VERSION,
+        api_version=settings.AZURE_OPENAI_AGENT_API_VERSION,
         function_invocation_configuration={
             "enabled": True,
             "max_iterations": 6,

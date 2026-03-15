@@ -235,6 +235,7 @@ def run_gpt_diagnostic(run_agent_query_fn) -> str:
     lines.append(f"deployment={settings.AZURE_OPENAI_DEPLOYMENT}")
     lines.append(f"fallback_deployment={settings.AZURE_OPENAI_FALLBACK_DEPLOYMENT}")
     lines.append(f"api_version={settings.AZURE_OPENAI_API_VERSION}")
+    lines.append(f"agent_api_version={getattr(settings, 'AZURE_OPENAI_AGENT_API_VERSION', 'preview')}")
     try:
         lines.append(f"openai_pkg={importlib.metadata.version('openai')}")
     except Exception:

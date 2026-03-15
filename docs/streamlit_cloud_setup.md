@@ -30,6 +30,8 @@ This setup keeps the app public while protecting Azure usage with soft request l
 
 - `AZURE_OPENAI_DEPLOYMENT = "gpt-4o"` (quality mode)
 - `AZURE_OPENAI_FALLBACK_DEPLOYMENT = "gpt-4o-mini"` (fast fallback)
+- `AZURE_OPENAI_API_VERSION = "2025-03-01-preview"` for direct OpenAI client calls
+- `AZURE_OPENAI_AGENT_API_VERSION = "preview"` for Microsoft Agent Framework Responses client
 - `GPT_MAX_CALLS_PER_MINUTE_SESSION = 8`
 - `GPT_MAX_CALLS_PER_MINUTE_GLOBAL = 20`
 - `GPT_MAX_CALLS_PER_SESSION = 120`
