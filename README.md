@@ -16,7 +16,7 @@ Built for the **Microsoft AI Dev Days Hackathon 2026**.
 
 Public entry points:
 - Live demo app: `https://risk-sentinel-hxq8pzyujwbmbokegefcaq.streamlit.app/`
-- Video demo: `https://youtu.be/fMlGtGxb8vY`
+- Video demo: `https://youtu.be/jZ9hkAiap1I`
 - Project site: `https://stefano-blando.github.io/risk-sentinel/`
 
 **Key features:**
@@ -165,7 +165,7 @@ CHAINLIT_USE_GPT=1 python -m chainlit run apps/chainlit/app.py -w
 - Repository: `https://github.com/stefano-blando/risk-sentinel`
 - Project site: `https://stefano-blando.github.io/risk-sentinel/`
 - Live demo app: `https://risk-sentinel-hxq8pzyujwbmbokegefcaq.streamlit.app/`
-- Video demo: `https://youtu.be/fMlGtGxb8vY`
+- Video demo: `https://youtu.be/jZ9hkAiap1I`
 
 ### Hackathon Docs
 
