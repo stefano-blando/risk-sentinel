@@ -26,7 +26,7 @@ RiskSentinel combines network science and multi-agent orchestration:
 ## Microsoft Stack
 - Microsoft Agent Framework (`agent-framework`)
 - Azure OpenAI (GPT-4o / GPT-4o-mini)
-- Azure-ready configuration for deployment and judge access gating
+- Azure-ready deployment configuration with request caps for budget control
 
 ## Live Demo Flow (2 min)
 1. Ask: "What if JPM crashes 40% on 2025-12-01?"

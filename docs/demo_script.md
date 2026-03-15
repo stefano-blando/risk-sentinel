@@ -12,8 +12,7 @@ For plain TTS paste:
 
 1. Open the app and keep the sidebar visible.
 2. Open `⚙️ Ops` once and confirm `Show explainability panel` is ON.
-3. If GPT is locked, enter the judge code in `Judge access code` and click `Unlock GPT`.
-4. If the app shows `Synthetic demo dataset active`, use lower correlation thresholds around `0.30` to `0.35`.
+3. If the app shows `Synthetic demo dataset active`, use lower correlation thresholds around `0.30` to `0.35`.
 
 ## Recommended Recording Flow
 
@@ -135,7 +134,6 @@ Use this short segment if you want to clearly demonstrate Azure GPT agents (not 
 In `⚙️ Ops`:
 - Set `Run GPT on standard shock queries` to ON
 - If shown, keep `Agent mode` ON
-- If GPT is gated, enter `Judge access code` and click `Unlock GPT`
 
 Then run one complex query from chat:
 - `Compare JPM and GS contagion paths and propose mitigation with uncertainty and monitoring triggers.`
@@ -167,3 +165,37 @@ If you need a shorter recording:
 4. Open `📊 Surveillance`
 5. Open `🔮 Outlook` and click `Run Bank Shock`
 6. Open `🔍 Audit Trail` only if you have time
+
+## ElevenLabs Full Paste (Copy/Paste)
+
+RiskSentinel is an agentic platform for systemic risk surveillance, forward stress testing, and intervention analysis.
+
+It helps answer a central question for supervisors and risk teams: where is systemic fragility building, and what happens if a critical node fails?
+
+Here, we trigger a crisis replay and immediately see how stress propagates across the market graph wave by wave.
+
+Then we move to a supervisory dashboard with affected nodes, cascade depth, total stress, and model-sensitive risk comparisons.
+
+The Outlook layer adds forward-looking monitoring.
+
+It does not claim precise market prediction.
+
+Instead, it provides a baseline for near-term fragility monitoring, watchlist shifts, and synchronized stress playback from the selected focus date.
+
+From there, we can launch a forward stress test on the observed network.
+
+For example, we shock a critical institution, replay contagion waves across the market graph, and identify the nodes and sectors that absorb the largest second-order stress.
+
+This is where RiskSentinel becomes decision-oriented.
+
+We can compare scenarios, inspect vulnerable nodes, and test interventions such as exposure caps, connector removal, or sector firebreaks, before producing a supervisory readout.
+
+For agent-driven analysis, we can enable Azure GPT and run a complex query.
+
+The system coordinates specialist roles, then validates outputs against deterministic evidence through an auditable control flow.
+
+Every run remains bounded and traceable.
+
+The platform separates deterministic evidence from the AI interpretation layer, records execution traces, applies critic validation, and exposes quality signals for review.
+
+RiskSentinel turns financial shock questions into fast, explainable, and intervention-ready systemic risk intelligence for real supervisory workflows.

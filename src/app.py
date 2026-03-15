@@ -785,7 +785,7 @@ def _get_runtime_int(name: str, default: int) -> int:
 @st.cache_resource
 def get_global_gpt_rate_bucket() -> dict:
     """Shared in-process bucket for soft global GPT throttle."""
-    return {"events": []}
+    return {"events": [], "day_key": "", "day_calls": 0}
 
 
 def _prune_events(events: list[float], now_ts: float, window_sec: int = 60) -> list[float]:
@@ -2697,10 +2697,8 @@ with tab_settings:
     can_enable_agent_mode = bool(is_agent_ready and access_policy["allowed"])
     if can_enable_agent_mode:
         st.caption("GPT orchestrator available")
-    elif not is_agent_ready:
-        st.caption("GPT orchestrator unavailable (using local fallback)")
     else:
-        st.caption("GPT locked: judge access code required")
+        st.caption("GPT orchestrator unavailable (using local fallback)")
 
     st.session_state.agent_mode = st.toggle(
         "Use GPT Orchestrator",
@@ -2769,19 +2767,6 @@ with tab_settings:
         disabled=not st.session_state.agent_mode,
     )
 
-    if access_policy["gate_enabled"] and not access_policy["allowed"]:
-        judge_code = st.text_input("Judge access code", type="password", placeholder="Enter code")
-        if st.button("Unlock GPT", use_container_width=True):
-            if unlock_judge_access(judge_code):
-                st.session_state.judge_unlock_error = ""
-                st.rerun()
-            else:
-                st.session_state.judge_unlock_error = "Invalid code."
-        if st.session_state.judge_unlock_error:
-            st.error(st.session_state.judge_unlock_error)
-    elif access_policy["gate_enabled"] and access_policy["allowed"]:
-        st.success("Judge access unlocked for this session.")
-
     try:
         primary_dep, fallback_dep = get_deployment_routing(st.session_state.high_quality_mode)
         st.caption(f"Primary: {primary_dep} | Fallback: {fallback_dep}")
@@ -2801,7 +2786,8 @@ with tab_settings:
     rate_cfg_caption = (
         f"Soft limits: {_get_runtime_int('GPT_MAX_CALLS_PER_MINUTE_SESSION', 8)}/min session, "
         f"{_get_runtime_int('GPT_MAX_CALLS_PER_MINUTE_GLOBAL', 20)}/min global, "
-        f"{_get_runtime_int('GPT_MAX_CALLS_PER_SESSION', 120)} per session."
+        f"{_get_runtime_int('GPT_MAX_CALLS_PER_SESSION', 120)} per session, "
+        f"{_get_runtime_int('GPT_MAX_CALLS_PER_DAY_GLOBAL', 600)} per day global."
     )
     st.caption(rate_cfg_caption)
     st.caption("Tool contract: mcp.tool.result.v1 (MCP-ready JSON envelopes)")

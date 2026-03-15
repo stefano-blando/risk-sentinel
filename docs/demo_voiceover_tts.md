@@ -11,6 +11,29 @@ Recommended usage:
 - Align screen actions to the section timings
 - Use the clean ElevenLabs block at the end when you want plain TTS input only
 
+## Exact Recording Flow
+
+Use this exact sequence while recording.
+
+### Pre-flight
+
+1. Open the app with the sidebar visible.
+2. Open `⚙️ Ops` and confirm `Show explainability panel` is ON.
+3. If the banner says `Synthetic demo dataset active`, prefer thresholds around `0.30` to `0.35`.
+
+### Click-by-click path
+
+1. In the sidebar, under `⚡ Crisis Presets`, click `SVB Crisis`.
+2. Open `🌐 Stress Lab` and show the animated graph.
+3. In the sidebar, click `⚖️ Compare All 3 Models`.
+4. Open `📊 Surveillance` and show the KPI cards plus `Model Comparison`.
+5. Open `🔮 Outlook` and click `🔮 Run Outlook`.
+6. In `📡 Monitor`, show `Current Regime`, `Fragility Trend`, `Checkpoint Outlook`, and `Watchlist Panel`.
+7. In `💥 Stress Test`, click `Run Bank Shock`.
+8. Show the playback animation, `Top Vulnerable Nodes`, and `Intervention Readout`.
+9. In the sidebar, under `🧩 Scenario Pack`, choose `B) Bank comparison strategy` and click `▶ Run Scenario`.
+10. Open `🔍 Audit Trail` and show Planner / Executor / Critic badges, `Judge Dashboard`, and export buttons.
+
 ## Pronunciation Notes
 
 - Say `JPM` as `J P Morgan`
@@ -22,50 +45,63 @@ Recommended usage:
 
 ## Timed Script With Screen Actions
 
-### 0:00 - 0:10
+### C0 | 0:00 - 0:10
 
 Screen:
 - Open the app home
-- Show the main tabs: `Stress Lab`, `Surveillance`, `Outlook`, `Audit Trail`
+- Keep the sidebar visible
+- Show the main tabs: `Stress Lab`, `Surveillance`, `Outlook`, `Audit Trail`, `Ops`
 
 Voice:
 
 RiskSentinel is an agentic platform for systemic risk surveillance, forward stress testing, and intervention analysis.
 
-### 0:10 - 0:25
+### C1 | 0:10 - 0:26
 
 Screen:
-- Open `Surveillance`
-- Show regime, fragility trend, sector pressure, and ranked nodes
+- In the sidebar, under `⚡ Crisis Presets`, click `SVB Crisis`
+- Open `🌐 Stress Lab`
+- Show the animated network
+- Click play on the graph controls or drag the wave slider
 
 Voice:
 
 It helps answer a central question for supervisors and risk teams: where is systemic fragility building, and what happens if a critical node fails?
 
-Here, the Surveillance view summarizes the current regime, sector pressure, and the most systemically vulnerable nodes.
+Here, we trigger a crisis replay and immediately see how stress propagates across the market graph wave by wave.
 
-### 0:25 - 0:42
+### C2 | 0:26 - 0:42
 
 Screen:
-- Open `Outlook`
-- Stay on `Monitor`
-- Show focus date, checkpoint outlook, and watchlist
+- In the sidebar, click `⚖️ Compare All 3 Models`
+- Open `📊 Surveillance`
+- Show the KPI row, sector charts, and `Model Comparison`
+
+Voice:
+
+This gives supervisors an immediate dashboard of affected nodes, cascade depth, total stress, and model-sensitive risk comparisons.
+
+### C3 | 0:42 - 1:00
+
+Screen:
+- Open `🔮 Outlook`
+- Click `🔮 Run Outlook`
+- Stay in `📡 Monitor`
+- Show `Current Regime`, `Fragility Trend`, `Checkpoint Outlook`, and `Watchlist Panel`
 
 Voice:
 
 The Outlook layer adds forward-looking monitoring.
 
-It does not claim precise market prediction.
-
 Instead, it provides a baseline for near-term fragility monitoring, watchlist shifts, and synchronized stress playback from the selected focus date.
 
-### 0:42 - 1:02
+### C4 | 1:00 - 1:20
 
 Screen:
 - Move to `Outlook` -> `Stress Test`
-- Pick a scenario card or run a shock on `JPM` or `NVDA`
-- Launch `Run Shock Playback`
+- Click `Run Bank Shock`
 - Show the animated network and top vulnerable nodes
+- Keep `Intervention Readout` visible
 
 Voice:
 
@@ -73,35 +109,26 @@ From there, we can launch a forward stress test on the observed network.
 
 For example, we shock a critical institution, replay contagion waves across the market graph, and identify the nodes and sectors that absorb the largest second-order stress.
 
-### 1:02 - 1:20
+### C5 | 1:20 - 1:38
 
 Screen:
-- Show `Scenario Compare`
-- Show `Policy Intervention`
-- Show before and after metrics or the intervention readout
+- In the sidebar, under `🧩 Scenario Pack`, choose `B) Bank comparison strategy`
+- Click `▶ Run Scenario`
+- Wait for the run to complete
+- Open `🔍 Audit Trail`
 
 Voice:
 
-This is where RiskSentinel becomes decision-oriented.
+This is where the platform becomes fully auditable.
 
-We can compare scenarios, inspect vulnerable nodes, and test interventions such as exposure caps, connector removal, or sector firebreaks, before producing a supervisory readout.
+The platform separates deterministic evidence from the A I interpretation layer, records execution traces, applies critic validation, and exposes quality signals for review.
 
-### 1:20 - 1:38
-
-Screen:
-- Open `Audit Trail`
-- Show traces, evidence, quality signals, and export bundle
-
-Voice:
-
-Every run remains bounded and auditable.
-
-The platform separates deterministic evidence from the AI interpretation layer, records execution traces, applies critic validation, and exposes quality signals for review.
-
-### 1:38 - 1:52
+### C6 | 1:38 - 1:52
 
 Screen:
-- Return to a strong closing surface, ideally `Surveillance` or `Outlook`
+- Inside `🔍 Audit Trail`, show Planner, Executor, Critic badges
+- Show `Judge Dashboard`
+- Show export buttons such as `📥 Report (.txt)` and `📦 Submission Bundle (.zip)`
 
 Voice:
 

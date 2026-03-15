@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import concurrent.futures
 import hashlib
-import hmac
 import json
 import os
 import time
@@ -84,13 +83,9 @@ def get_gpt_access_policy(
     st_module,
     session_state,
 ) -> dict:
-    """Judge access policy: open by default, locked only if code is configured."""
-    judge_code = get_runtime_value(st_module, "JUDGE_ACCESS_CODE", "")
-    gate_enabled = bool(judge_code)
-    unlocked = bool(session_state.judge_unlocked)
-    allowed = (not gate_enabled) or unlocked
-    reason = "open" if not gate_enabled else ("unlocked" if unlocked else "judge_code_required")
-    return {"gate_enabled": gate_enabled, "allowed": allowed, "reason": reason}
+    """GPT access is open by default (no judge gate)."""
+    del st_module, session_state
+    return {"gate_enabled": False, "allowed": True, "reason": "open"}
 
 
 def unlock_judge_access(
@@ -99,13 +94,9 @@ def unlock_judge_access(
     session_state,
     user_code: str,
 ) -> bool:
-    expected = get_runtime_value(st_module, "JUDGE_ACCESS_CODE", "")
-    if not expected:
-        session_state.judge_unlocked = True
-        return True
-    ok = hmac.compare_digest(user_code.strip(), expected.strip())
-    session_state.judge_unlocked = bool(ok)
-    return ok
+    del st_module, user_code
+    session_state.judge_unlocked = True
+    return True
 
 
 def check_gpt_rate_limit(
@@ -119,11 +110,16 @@ def check_gpt_rate_limit(
     max_session = get_runtime_int_fn("GPT_MAX_CALLS_PER_SESSION", 120)
     max_per_min_session = get_runtime_int_fn("GPT_MAX_CALLS_PER_MINUTE_SESSION", 8)
     max_per_min_global = get_runtime_int_fn("GPT_MAX_CALLS_PER_MINUTE_GLOBAL", 20)
+    max_per_day_global = get_runtime_int_fn("GPT_MAX_CALLS_PER_DAY_GLOBAL", 600)
 
     now = time.time()
     session_state.gpt_rate_events = prune_events_fn(session_state.gpt_rate_events, now, 60)
     bucket = get_global_bucket_fn()
     bucket["events"] = prune_events_fn(bucket.get("events", []), now, 60)
+    day_key = time.strftime("%Y-%m-%d", time.gmtime(now))
+    if bucket.get("day_key") != day_key:
+        bucket["day_key"] = day_key
+        bucket["day_calls"] = 0
 
     if session_state.gpt_calls_total_session >= max_session:
         return False, f"session_cap_reached:{max_session}"
@@ -131,6 +127,8 @@ def check_gpt_rate_limit(
         return False, f"session_rate_limit:{max_per_min_session}/min"
     if len(bucket["events"]) >= max_per_min_global:
         return False, f"global_rate_limit:{max_per_min_global}/min"
+    if int(bucket.get("day_calls", 0)) >= max_per_day_global:
+        return False, f"global_daily_cap:{max_per_day_global}/day"
     return True, "ok"
 
 
@@ -147,6 +145,11 @@ def register_gpt_call(
     bucket = get_global_bucket_fn()
     bucket["events"] = prune_events_fn(bucket.get("events", []), now, 60)
     bucket["events"].append(now)
+    day_key = time.strftime("%Y-%m-%d", time.gmtime(now))
+    if bucket.get("day_key") != day_key:
+        bucket["day_key"] = day_key
+        bucket["day_calls"] = 0
+    bucket["day_calls"] = int(bucket.get("day_calls", 0)) + 1
 
 
 def is_gpt_circuit_open(*, session_state) -> tuple[bool, float]:
