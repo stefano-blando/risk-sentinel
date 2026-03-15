@@ -1457,6 +1457,11 @@ shocked_ticker = str(sidebar_state["shocked_ticker"])
 shock_pct = int(sidebar_state["shock_pct"])
 shock_model = str(sidebar_state["shock_model"])
 threshold = float(sidebar_state["threshold"])
+st.session_state.sel_date = selected_date
+st.session_state.sel_ticker = shocked_ticker
+st.session_state.sel_shock = shock_pct
+st.session_state.sel_model = shock_model
+st.session_state.sel_threshold = threshold
 build_btn = bool(sidebar_state["build_btn"])
 shock_btn = bool(sidebar_state["shock_btn"])
 compare_btn = bool(sidebar_state["compare_btn"])
@@ -1546,6 +1551,15 @@ st.markdown(
 
 
 def _build_outlook_tab_context() -> dict[str, object]:
+    effective_outlook_scenarios = OUTLOOK_SCENARIOS
+    if data_loader.is_synthetic_mode():
+        effective_outlook_scenarios = [
+            {
+                **scenario,
+                "threshold": min(float(scenario.get("threshold", 0.5)), 0.35),
+            }
+            for scenario in OUTLOOK_SCENARIOS
+        ]
     return {
         "st": st,
         "pd": pd,
@@ -1606,7 +1620,7 @@ def _build_outlook_tab_context() -> dict[str, object]:
             lookback=lookback,
             limit=limit,
         ),
-        "OUTLOOK_SCENARIOS": OUTLOOK_SCENARIOS,
+        "OUTLOOK_SCENARIOS": effective_outlook_scenarios,
         "run_outlook_shock_playback": run_outlook_shock_playback,
         "_sector_options": _sector_options,
         "_top_sector_ticker": _top_sector_ticker,

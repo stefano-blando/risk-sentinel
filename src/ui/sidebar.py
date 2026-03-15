@@ -84,7 +84,14 @@ def render_sidebar(ctx: dict[str, object]) -> dict[str, object]:
             if st.session_state.sel_ticker in st.session_state.tickers else 0,
         )
         shock_pct = st.slider("Shock %", 10, 100, st.session_state.sel_shock, 10)
-        shock_model = st.selectbox("Model", ["debtrank", "linear_threshold", "cascade_removal"], index=0)
+        model_options = ["debtrank", "linear_threshold", "cascade_removal"]
+        shock_model = st.selectbox(
+            "Model",
+            model_options,
+            index=model_options.index(st.session_state.sel_model)
+            if st.session_state.sel_model in model_options
+            else 0,
+        )
         threshold = st.slider(
             "Corr. threshold",
             0.2,

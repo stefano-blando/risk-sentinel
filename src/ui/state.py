@@ -84,7 +84,7 @@ def build_app_defaults(
         "outlook_shock_ticker": "JPM",
         "outlook_shock_pct": 40,
         "outlook_shock_model": "debtrank",
-        "outlook_shock_threshold": 0.5,
+        "outlook_shock_threshold": 0.35 if is_synthetic_mode else 0.45,
         "outlook_shock_seed_mode": "ticker",
         "outlook_shock_sector": "Financials",
         "outlook_compare_enabled": False,
