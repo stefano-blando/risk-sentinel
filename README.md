@@ -14,6 +14,11 @@ Built for the **Microsoft AI Dev Days Hackathon 2026**.
 
 ![RiskSentinel Screenshot](risksentinel.jpg)
 
+Public entry points:
+- Live demo app: `https://risk-sentinel-hxq8pzyujwbmbokegefcaq.streamlit.app/`
+- Video demo: `https://youtu.be/fMlGtGxb8vY`
+- Project site: `https://stefano-blando.github.io/risk-sentinel/`
+
 **Key features:**
 - Natural language queries: *"What if Tesla crashes 60%?"*
 - Control-plane orchestration (`Planner -> Architect+Quant -> Advisor -> Critic`) with hard guardrails
@@ -160,7 +165,7 @@ CHAINLIT_USE_GPT=1 python -m chainlit run apps/chainlit/app.py -w
 - Repository: `https://github.com/stefano-blando/risk-sentinel`
 - Project site: `https://stefano-blando.github.io/risk-sentinel/`
 - Live demo app: `https://risk-sentinel-hxq8pzyujwbmbokegefcaq.streamlit.app/`
-- Video demo: pending final public URL
+- Video demo: `https://youtu.be/fMlGtGxb8vY`
 
 ### Hackathon Docs
 

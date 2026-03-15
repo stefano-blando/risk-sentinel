@@ -55,4 +55,4 @@ RiskSentinel combines network science and multi-agent orchestration:
 - Repository: `https://github.com/stefano-blando/risk-sentinel`
 - Project site: `https://stefano-blando.github.io/risk-sentinel/`
 - Live demo app: `https://risk-sentinel-hxq8pzyujwbmbokegefcaq.streamlit.app/`
-- Video demo: pending final public URL
+- Video demo: `https://youtu.be/fMlGtGxb8vY`
