@@ -314,7 +314,7 @@ def _build_synthetic_dataset() -> dict:
         date_ts = pd.Timestamp(all_dates[pos])
         window = returns.iloc[pos - 59: pos + 1]
         corr = window.corr().fillna(0.0)
-        np.fill_diagonal(corr.values, 1.0)
+        np.fill_diagonal(corr.iloc[:, :].values, 1.0)
 
         snapshot_dates.append(date_ts)
         corr_matrices[date_ts] = corr
