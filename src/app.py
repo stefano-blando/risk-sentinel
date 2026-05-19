@@ -2533,9 +2533,19 @@ if incoming_query:
                                     trace_event(trace, "gpt_fallback_err", f"{type(exc_fb).__name__}: {str(exc_fb)[:140]}")
 
                             if not fallback_ok:
+                                gpt_block_copy = f"⚠️ GPT analysis blocked ({type(exc).__name__})."
+                                if type(exc).__name__ == "APIConnectionError":
+                                    gpt_block_copy += (
+                                        " Check Azure OpenAI config in Streamlit secrets: "
+                                        "`AZURE_OPENAI_ENDPOINT` must use your resource host "
+                                        "(`https://<resource>.openai.azure.com/`), not a region host. "
+                                        "Then run `Run GPT Diagnostic` in Ops."
+                                    )
+                                else:
+                                    gpt_block_copy += " Using deterministic local output only."
                                 st.session_state.agent_messages.append(
                                     ("Sentinel", "🛡️", "agent-sentinel",
-                                     f"⚠️ GPT analysis blocked ({type(exc).__name__}). Using deterministic local output only.")
+                                     gpt_block_copy)
                                 )
                                 if parsed and local_sec is None:
                                     _step(88, "GPT unavailable. Running local fallback simulation")

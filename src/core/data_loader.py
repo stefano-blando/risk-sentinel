@@ -68,8 +68,15 @@ def _candidate_processed_dirs() -> list[Path]:
         ])
 
     repo_root = Path(__file__).resolve().parents[2]
+    data_dir = repo_root / "data"
+    if data_dir.is_dir():
+        # Priority 1: Specifically known extended PhD datasets
+        extended = sorted(data_dir.glob("processed_extended*"), reverse=True)
+        candidates.extend(extended)
+        # Priority 2: Standard processed folder
+        candidates.append(data_dir / "processed")
+
     candidates.extend([
-        repo_root / "data" / "processed",
         _LEGACY_PHD_BASE / "final_version" / "data" / "processed",
         _LEGACY_PHD_BASE / "data" / "processed",
     ])
