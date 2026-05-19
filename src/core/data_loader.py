@@ -272,10 +272,10 @@ def _build_synthetic_dataset() -> dict:
     returns_np += idio
     returns_np = np.clip(returns_np, -0.22, 0.22)
 
-    returns = pd.DataFrame(returns_np, index=all_dates, columns=tickers)
+    returns = pd.DataFrame(returns_np, index=all_dates, columns=tickers).copy()
 
     base_prices = rng.uniform(40.0, 240.0, size=n_tickers)
-    close_prices = (1.0 + returns).cumprod()
+    close_prices = (1.0 + returns).cumprod().copy()
     close_prices = close_prices.mul(base_prices, axis=1)
 
     sp500_ret = (returns.mean(axis=1) + rng.normal(0.0, 0.0015, size=n_days)).clip(-0.12, 0.12)
@@ -293,7 +293,7 @@ def _build_synthetic_dataset() -> dict:
             "SP500_Return": sp500_ret.astype(float),
         },
         index=all_dates,
-    )
+    ).copy()
 
     regime_data = market_data.copy()
     regime_data["Regime"] = regime
@@ -313,8 +313,8 @@ def _build_synthetic_dataset() -> dict:
 
         date_ts = pd.Timestamp(all_dates[pos])
         window = returns.iloc[pos - 59: pos + 1]
-        corr = window.corr().fillna(0.0)
-        np.fill_diagonal(corr.iloc[:, :].values, 1.0)
+        corr = window.corr().fillna(0.0).copy()
+        np.fill_diagonal(corr.values, 1.0)
 
         snapshot_dates.append(date_ts)
         corr_matrices[date_ts] = corr
