@@ -313,8 +313,9 @@ def _build_synthetic_dataset() -> dict:
 
         date_ts = pd.Timestamp(all_dates[pos])
         window = returns.iloc[pos - 59: pos + 1]
-        corr = window.corr().fillna(0.0).copy()
-        np.fill_diagonal(corr.values, 1.0)
+        corr_np = window.corr().fillna(0.0).to_numpy(copy=True)
+        np.fill_diagonal(corr_np, 1.0)
+        corr = pd.DataFrame(corr_np, index=window.columns, columns=window.columns)
 
         snapshot_dates.append(date_ts)
         corr_matrices[date_ts] = corr
@@ -322,7 +323,7 @@ def _build_synthetic_dataset() -> dict:
         G = nx.Graph()
         for ticker in tickers:
             G.add_node(ticker)
-        values = corr.values
+        values = corr_np
         for i in range(n_tickers):
             for j in range(i + 1, n_tickers):
                 w = float(values[i, j])
